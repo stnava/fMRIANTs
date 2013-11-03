@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Fmriants by stnava</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Fmriants</h1>
+        <p>Minimal fMRI pre-processing with ANTS</p>
+        <p class="view"><a href="https://github.com/stnava/fMRIANTs">View the Project on GitHub <small>stnava/fMRIANTs</small></a></p>
+        <ul>
+          <li><a href="https://github.com/stnava/fMRIANTs/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/stnava/fMRIANTs/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/stnava/fMRIANTs">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a name="fmriants" class="anchor" href="#fmriants"><span class="octicon octicon-link"></span></a>fMRIANTs</h1>
+
+<p>Minimal fMRI pre-processing with ANTS</p>
+
+<pre><code>fmri=data/bold.nii.gz
+nm=data/AFFINE
+ref=${nm}_avg.nii.gz
+antsMotionCorr -d 3 -a $fmri -o $ref
+antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] -m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.01  ] -t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 3x0 -n 3  
+#
+# this is a 'fast' example - you should change -i 3x0 to something larger 
+# and Regular, 0.01 to Regular, 0.2 for 'real' data - see AFFINE_AND_DEFORMABLE below
+#
+###########################################
+### now do deformable motion correction ###
+###########################################
+nm=data/AFFINE_AND_DEFORMABLE
+antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] -m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.2  ] -t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 33x20 -n 3  -m MI[${ref}, ${fmri}, 1 , 32 ] -t GaussianDisplacementField[0.15,3,0.5] -i 33x20 -u 1 -e 1 -s 1x0 -f 4x1 -n 3
+</code></pre>
+
+<p>The csv and result images that come out contain the motion corrected image and the motion nuisance variables - but you need to run the affine version to get the motion variables ( that's a small bug in that the 2nd level registration doesnt maintain the 1st level motion results ) .... It might be interesting to also write out the deformation field in order to quantify distortion but that is a separate issue.</p>
+
+<p>Next you can run the CompCor command to estimate physiological nuisance variables.</p>
+
+<pre><code># 
+# CompCor needs a mask --- you can get the mask by (might need to alter the value 200 up or down) 
+#
+ThresholdImage 3  data/AFFINE_avg.nii.gz data/mask.nii.gz 200 1.e9 
+ImageMath 3 data/mask.nii.gz ME data/mask.nii.gz 1 
+ImageMath 3 data/mask.nii.gz GetLargestComponent data/mask.nii.gz
+ImageMath 3 data/mask.nii.gz MD data/mask.nii.gz 2 
+ImageMath 3 data/mask.nii.gz ME data/mask.nii.gz 1 
+# you may alternatively run CompCor on the motion-corrected data
+ImageMath 4 data/OUT.nii.gz CompCorrAuto data/bold.nii.gz data/mask.nii.gz 6 
+#
+# the important output will be called  OUT_compcorr.csv 
+#
+</code></pre>
+
+<p>For T1 processing : see</p>
+
+<p>(NeuroBattery)[<a href="http://jeffduda.github.io/NeuroBattery/">http://jeffduda.github.io/NeuroBattery/</a>]</p>
+      </section>
+    </div>
+    <footer>
+      <p>Project maintained by <a href="https://github.com/stnava">stnava</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
