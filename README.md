@@ -42,4 +42,4 @@ ImageMath 4 data/OUT.nii.gz CompCorrAuto data/bold.nii.gz data/mask.nii.gz 6
 
 For T1 processing : see
 
-(http://jeffduda.github.io/NeuroBattery/)[NeuroBattery]
+[NeuroBattery](http://jeffduda.github.io/NeuroBattery/)
