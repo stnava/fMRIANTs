@@ -8,10 +8,15 @@ fmri=data/bold.nii.gz
 nm=data/AFFINE
 ref=${nm}_avg.nii.gz
 antsMotionCorr -d 3 -a $fmri -o $ref
-antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] -m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.1  ] -t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 15x3 -n 3  -w 1
+antsMotionCorr  -d 3 \
+-o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] \
+-m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.1  ] \
+-t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 \
+-i 15x3 -n 3  -w 1
 # -w 1 means write out the displacement field
 #
-# this is a 'fast' example - you should change -i parameters to something larger
+# this is a 'fast' example -
+# you should change -i parameters to something larger
 # and Regular, 0.01 to Regular, 0.2 for 'real' data -
 # see AFFINE_AND_DEFORMABLE below
 #
@@ -41,7 +46,12 @@ antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
 ### now do deformable motion correction ###
 ###########################################
 nm=data/AFFINE_AND_DEFORMABLE
-antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] -m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.2  ] -t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 33x20 -n 3  -m MI[${ref}, ${fmri}, 1 , 32 ] -t GaussianDisplacementField[0.15,3,0.5] -i 33x20 -u 1 -e 1 -s 1x0 -f 4x1 -n 3
+antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] \
+-m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.2  ] \
+-t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 33x20 \
+-n 3  -m MI[${ref}, ${fmri}, 1 , 32 ] \
+-t GaussianDisplacementField[0.15,3,0.5] \
+-i 33x20 -u 1 -e 1 -s 1x0 -f 4x1 -n 3
 ```
 
 The csv and result images that come out contain the motion corrected image and the motion nuisance variables - but you need to run the affine version to get the motion variables ( that's a small bug in that the 2nd level registration doesnt maintain the 1st level motion results ) .... It might be interesting to also write out the deformation field in order to quantify distortion but that is a separate issue.
