@@ -39,8 +39,23 @@ antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
       --metric meansquares[${fxd},$fmri,1] \
       --convergence [15x2,1e-6,4] --shrink-factors 2x1 \
       --smoothing-sigmas 1x0vox --restrict-deformation 1x1x1x0
-### TODO - show a 3D transformation to a template then pad these maps s.t.
-### they can be applied to a 4D dataset - 4D affine and 4D displacement
+### generate a 3D transformation to a template then replicate these maps s.t.
+### they can be applied to a 4D dataset
+antsRegistrationSyNQuick.sh -d 3 -f data/template.nii.gz -m ${nm}_avg.nii.gz \
+  -o ${nm}_diff -t s
+# collapse the transformations to a displacement field
+antsApplyTransforms -d 3 -o [${nm}_diffCollapsedWarp.nii.gz,1] \
+  -t ${nm}_diff1Warp.nii.gz -t ${nm}_diff0GenericAffine.mat \
+  -r data/template.nii.gz
+# replicate 3D to 4D
+ImageMath 3 ${nm}_diff4DCollapsedWarp.nii.gz ReplicateDisplacement \
+  ${nm}_diffCollapsedWarp.nii.gz $hislice $tr 0
+ImageMath 3 data/template_replicated.nii.gz ReplicateImage \
+  data/template.nii.gz $hislice $tr 0
+# apply to original bold
+antsApplyTransforms -d 4 -o ${nm}_bold2template.nii.gz \
+  -t ${nm}_diff4DCollapsedWarp.nii.gz -t ${nm}_0Warp.nii.gz  \
+  -r data/template_replicated.nii.gz -i ${nm}Warped.nii.gz
 ###########################################
 ###########################################
 ### now do deformable motion correction ###
