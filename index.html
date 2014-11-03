@@ -54,11 +54,7 @@ antsMotionCorr  -d 3 \
 hislice=`PrintHeader $fmri | grep Dimens | cut -d ',' -f 4 | cut -d ']' -f 1`
 tr=`PrintHeader $fmri | grep "Voxel Spac" | cut -d ',' -f 4 | cut -d ']' -f 1`
 fxd=${nm}_fixed.nii.gz
-stackavg=" "
-for x in `seq 1 $hislice` ; do
-  stackavg=" $stackavg ${nm}_avg.nii.gz "
-done
-ImageMath 4 $fxd TimeSeriesAssemble $tr 0 $stackavg
+ImageMath 3 $fxd ReplicateImage ${nm}_avg.nii.gz $hislice $tr 0
 tx=SyN[0.1,3,0.0] # critical parameters (though others matter too)
 antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
       --output   [${nm}_,${nm}Warped.nii.gz] \
@@ -85,19 +81,7 @@ antsApplyTransforms -d 4 -o ${nm}_bold2template.nii.gz \
   -t ${nm}_diff4DCollapsedWarp.nii.gz -t ${nm}_0Warp.nii.gz  \
   -r data/template_replicated.nii.gz -i ${nm}Warped.nii.gz
 ###########################################
-###########################################
-### now do deformable motion correction ###
-###########################################
-nm=data/AFFINE_AND_DEFORMABLE
-antsMotionCorr  -d 3 -o [ ${nm}, ${nm}.nii.gz,${nm}_avg.nii.gz] \
--m MI[${ref}, ${fmri}, 1 , 32 , Regular, 0.2  ] \
--t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 -i 33x20 \
--n 3  -m MI[${ref}, ${fmri}, 1 , 32 ] \
--t GaussianDisplacementField[0.15,3,0.5] \
--i 33x20 -u 1 -e 1 -s 1x0 -f 4x1 -n 3
 </code></pre>
-
-<p>The csv and result images that come out contain the motion corrected image and the motion nuisance variables - but you need to run the affine version to get the motion variables ( that's a small bug in that the 2nd level registration doesnt maintain the 1st level motion results ) .... It might be interesting to also write out the deformation field in order to quantify distortion but that is a separate issue.</p>
 
 <p>Next you can run the CompCor command to estimate physiological nuisance variables.</p>
 
@@ -112,11 +96,9 @@ ImageMath 3 data/mask.nii.gz ME data/mask.nii.gz 1
 # you may alternatively run CompCor on the motion-corrected data
 ImageMath 4 data/OUT.nii.gz CompCorrAuto data/bold.nii.gz data/mask.nii.gz 6
 #
-# the important output will be called  OUT_compcorr.csv
-#
 </code></pre>
 
-<p>For T1 processing : see</p>
+<p>For use in context with T1 processing : see</p>
 
 <p><a href="http://jeffduda.github.io/NeuroBattery/">NeuroBattery</a></p>
       </section>
