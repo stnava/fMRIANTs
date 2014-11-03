@@ -22,8 +22,8 @@ antsMotionCorr  -d 3 \
 -t Affine[ 0.1 ] -u 1 -e 1 -s 1x0 -f 2x1 \
 -i 15x3 -n 3  -w 1
 ```
-This is a 'fast' example - you might change -i parameters
-to something larger and Regular, 0.1 to Regular, 0.2 for 'real' data.
+This is a 'fast' example - you might change `-i` parameters
+to something larger and `Regular, 0.1` to `Regular, 0.2` for 'real' data.
 
 The parameter `-w 1` means write out the displacement field.  This will
 write a 4D displacement field that captures the affine induced motion
@@ -54,6 +54,7 @@ antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
       --convergence [15x2,1e-6,4] --shrink-factors 2x1 \
       --smoothing-sigmas 1x0vox --restrict-deformation 1x1x1x0
 ```
+The parameter `--restrict-deformation 1x1x1x0` prevents deformation across time.
 
 Finally, we generate a 3D transformation to a template then replicate these maps s.t. they can be applied to the original 4D dataset.  This is a useful
 example of how ANTs works, in general, to minimize the number of interpolations
