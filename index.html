@@ -52,8 +52,8 @@ correct.</p>
 -i 15x3 -n 3  -w 1
 </code></pre>
 
-<p>This is a 'fast' example - you might change -i parameters
-to something larger and Regular, 0.1 to Regular, 0.2 for 'real' data.</p>
+<p>This is a 'fast' example - you might change <code>-i</code> parameters
+to something larger and <code>Regular, 0.1</code> to <code>Regular, 0.2</code> for 'real' data.</p>
 
 <p>The parameter <code>-w 1</code> means write out the displacement field.  This will
 write a 4D displacement field that captures the affine induced motion
@@ -84,6 +84,8 @@ antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
       --convergence [15x2,1e-6,4] --shrink-factors 2x1 \
       --smoothing-sigmas 1x0vox --restrict-deformation 1x1x1x0
 </code></pre>
+
+<p>The parameter <code>--restrict-deformation 1x1x1x0</code> prevents deformation across time.</p>
 
 <p>Finally, we generate a 3D transformation to a template then replicate these maps s.t. they can be applied to the original 4D dataset.  This is a useful
 example of how ANTs works, in general, to minimize the number of interpolations
