@@ -2,8 +2,8 @@
 title: "ANTsR fMRI Questions"
 author: "Brian B. Avants et al."
 date: "November 24, 2014"
-output: ioslides_presentation
-self_contained: no
+output: slidy_presentation
+self_contained: yes
 ---
 
 ## Basic Goals
@@ -108,10 +108,13 @@ avg<-getAverageOfTimeSeries(bold)
 
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
 onm=paste(figpre,'slices.png',sep='')
-plotANTsImage(avg,slices='9x26x4',axis=3,outname=onm)
+plotANTsImage(avg,slices='18x26x4',axis=3,outname=onm)
 ```
 
+## Show the image 
+
 ![Axial slices](./TEMP_figslices.png)
+
 
 ## Get Mask
 
@@ -135,10 +138,13 @@ plot(ts(dvars))
 
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
   boldarr<-as.array(bold)
-  bold2d<-as.antsImage(boldarr[20,20,,])
+  bold2d<-as.antsImage(t(boldarr[20,20,,]))
   onm2da=paste(figpre,'slices2da.png',sep='')
   plotANTsImage(bold2d,outname=onm2da)
 ```
+
+## Show Time Slice Before Motion Correction
+
 ![Time Slices Before Motion Correction](./TEMP_figslices2da.png)
 
 ## Get TR and ntime volumes 
@@ -180,14 +186,17 @@ What is being done here?
 ```
 
 
-## Show Time Slice After Motion Correction
+## Show Time Slice After Motion $+$ Nuisance Residuals
 
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
   boldarr<-as.array(boldpre$cleanBoldImage)
-  bold2d<-as.antsImage(boldarr[20,20,,])
+  bold2d<-as.antsImage(t(boldarr[20,20,,]))
   onm2db=paste(figpre,'slices2db.png',sep='')
   plotANTsImage(bold2d,outname=onm2db)
 ```
+
+## Show Time Slice After Motion $+$ Nuisance Residuals
+
 ![Time Slices After Motion Correction](./TEMP_figslices2db.png)
 
 ## Look at DVARS in corrected data 
@@ -318,16 +327,29 @@ The `t1brain` : 2mm version here, for speed.
 
 ## Do group stats
 
-```{r, echo=FALSE}
+See [ANTsR examples](http://stnava.github.io/ANTsR/)
+
+```{r, echo=TRUE}
 # see antsr documentation for how this might be done 
 # on the warped beta images
 ```
 
+## Show on group template 
 
+```{r, echo=T,warning=F,message=F,cache=FALSE}
+onm=paste(figpre,'betas.png',sep='')
+th<-paste("3.0x",as.character(max(wbeta)),sep='')
+plotANTsImage(gtemplate,functional=list(wbeta), thresh=th,
+  color='jet',slices='48x62x4',axis=3,outname=onm)
+```
+
+## Show on group template
+
+![Axial slices](./TEMP_figbetas.png)
 
 ## $\beta$ histogram
 
-```{r, echo=FALSE}
+```{r, echo=T}
 hist( betas[ mask  == 1  ]   )
 ```
 
