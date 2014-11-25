@@ -2,8 +2,10 @@
 title: "ANTsR fMRI Questions"
 author: "Brian B. Avants et al."
 date: "November 24, 2014"
-output: slidy_presentation
-self_contained: yes
+output: 
+  pdf_document:
+  slidy_presentation:
+    self_contained: yes
 ---
 
 ## Basic Goals
