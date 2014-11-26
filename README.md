@@ -1,6 +1,8 @@
 fMRIANTs
 ========
 
+If you want a full pipeline, see [ANTsR fMRI example](http://htmlpreview.github.io/?https://github.com/stnava/fMRIANTs/blob/master/ANTsRfMRI_FAQ.html).  Otherwise, see below.
+
 Minimal fMRI pre-processing with ANTS
 
 Let's first define some data and create an average (target) image.
