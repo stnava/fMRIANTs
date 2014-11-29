@@ -60,9 +60,8 @@ Define output prefix for this subject - usually would contain _unique ID_ concat
 E.g. "110099_20150108".
 
 ```{r, echo=TRUE,cache=FALSE}
-prefix<-paste(basedir,"TEMP",sep='') # paste(tempfile())
-figpre<-paste(basedir,"ANTsRfMRI_FAQ_files/figure-html/fig",sep='')
-figpre<-paste(basedir,"TEMP_fig",sep='')
+prefix<-paste(tempfile())# paste(basedir,"TEMP",sep='') 
+figpre<-paste(tempfile())# paste(basedir,"TEMP_fig",sep='')
 ```
 
 
@@ -109,13 +108,13 @@ avg<-getAverageOfTimeSeries(bold)
 ## Show the image 
 
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
-onm=paste(figpre,'slices.png',sep='')
-plotANTsImage(avg,slices='18x26x4',axis=3,outname=onm)
+onm1=paste(figpre,'slices.png',sep='')
+plotANTsImage(avg,slices='18x26x4',axis=3,outname=onm1)
 ```
 
 ## Show the image 
 
-![Axial slices](./TEMP_figslices.png)
+![Axial slices](`r onm1`)
 
 
 ## Get Mask
@@ -147,7 +146,7 @@ plot(ts(dvars))
 
 ## Show Time Slice Before Motion Correction
 
-![Time Slices Before Motion Correction](./TEMP_figslices2da.png)
+![Time Slices Before Motion Correction](`r onm2da`)
 
 ## Get TR and ntime volumes 
 
@@ -199,7 +198,7 @@ What is being done here?
 
 ## Show Time Slice After Motion $+$ Nuisance Residuals
 
-![Time Slices After Motion Correction](./TEMP_figslices2db.png)
+![Time Slices After Motion Correction](`r onm2db`)
 
 ## Look at DVARS in corrected data 
 
@@ -347,7 +346,7 @@ plotANTsImage(gtemplate,functional=list(wbeta), thresh=th,
 
 ## Show on group template
 
-![Axial slices](./TEMP_figbetas.png)
+![Axial slices](`r onm`)
 
 ## $\beta$ histogram
 
