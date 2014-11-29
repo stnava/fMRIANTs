@@ -43,7 +43,7 @@ Define output prefix for this subject - usually would contain _unique ID_ concat
 E.g. "110099_20150108".
 
 ```{r, echo=TRUE,cache=FALSE}
-myPriorStrength<-100.0 # controls prior influence
+myPriorStrength<-50.0 # controls prior influence
 prefix<-paste(tempfile())
 figpre<-paste(tempfile())
 ```
@@ -99,7 +99,7 @@ tc<-as.factor(rep(c("C","T"),nrow(aslmat)/2))
 dv<-computeDVARS(aslmat)
 ncompcor<-10
 raslmat<-residuals(lm(aslmat~tc+dv))
-compcornuis<-compcor(raslmat,ncompcor)
+compcornuis<-compcor(raslmat,ncompcor,variance_extreme = 0.95 )
 perfmodel<-lm( aslmat ~ tc + dv + compcornuis )
 blm<-bigLMStats( perfmodel, includeIntercept=T )
 intvals<-blm$beta["(Intercept)",]
@@ -174,14 +174,15 @@ plot(  perfimg[mask==1],  bperfimg[mask==1],
 Note: avg should actually be mean of control images - see `aslPerfusion`.
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
  pcasl.parameters <- list( sequence="pcasl", m0=avg )
- cbf <- quantifyCBF(  perfimg, mask,pcasl.parameters )$kmeancbf
- bcbf<- quantifyCBF( bperfimg, mask,pcasl.parameters )$kmeancbf
+ cbf <- quantifyCBF(  perfimg, mask,pcasl.parameters )
+ bcbf<- quantifyCBF( bperfimg, mask,pcasl.parameters )
 ```
 
 ## The basic cbf map 
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
 cbfnm=paste(figpre,'cbf.png',sep='')
-plotANTsImage(cbf,slices='3x6x1',axis=3,outname=cbfnm)
+plotANTsImage(cbf$kmeancbf,slices='3x6x1',axis=3,outname=cbfnm)
+cbf<-cbf$meancbf
 ```
 ![Axial slices](`r cbfnm`)
 
@@ -190,7 +191,8 @@ plotANTsImage(cbf,slices='3x6x1',axis=3,outname=cbfnm)
 
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
 bcbfnm=paste(figpre,'bcbf.png',sep='')
-plotANTsImage(bcbf,slices='3x6x1',axis=3,outname=bcbfnm)
+plotANTsImage(bcbf$kmeancbf,slices='3x6x1',axis=3,outname=bcbfnm)
+bcbf<-bcbf$meancbf
 ```
 ![Axial slices](`r bcbfnm`)
 
