@@ -13,6 +13,8 @@ output:
 - Use bayesian regression to stabilize CBF reconstruction.
 - Illustrate the effect of bayesian priors.
 - Show the reduction of artifactual effects.
+- NOTE: basic 'beginner' example: still WIP to incorporate in pipeline.
+- TODO: add motion correction, robust regression params, locality, use of probabilistic tissue classes to mix models.
 - see [fMRIANTs](https://github.com/stnava/fMRIANTs) for this source file.
 
 ## Define study parameters
@@ -41,9 +43,9 @@ Define output prefix for this subject - usually would contain _unique ID_ concat
 E.g. "110099_20150108".
 
 ```{r, echo=TRUE,cache=FALSE}
-myPriorStrength<-150.0 # controls prior influence
-prefix<-paste(tempfile())#paste(basedir,"TEMP",sep='') 
-figpre<-paste(tempfile())#paste(basedir,"TEMP_fig",sep='') # 
+myPriorStrength<-100.0 # controls prior influence
+prefix<-paste(tempfile())
+figpre<-paste(tempfile())
 ```
 
 Show image.
@@ -83,7 +85,8 @@ plotANTsImage(avg,slices='6x12x2',axis=3,outname=onm)
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
 N3BiasFieldCorrection(3,avg,avg,2)
 N3BiasFieldCorrection(3,avg,avg,2)
-mask<-getMask(avg,mean(avg),Inf,2)
+mask<-antsImageClone(seg)
+mask[ mask > 0 ]<-1
 aslmat<-timeseries2matrix(pcasl, mask)
 ```
 
@@ -94,7 +97,10 @@ Could alternatively use the segmentation mask.
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
 tc<-as.factor(rep(c("C","T"),nrow(aslmat)/2))
 dv<-computeDVARS(aslmat)
-perfmodel<-lm( aslmat ~ tc + dv )
+ncompcor<-10
+raslmat<-residuals(lm(aslmat~tc+dv))
+compcornuis<-compcor(raslmat,ncompcor)
+perfmodel<-lm( aslmat ~ tc + dv + compcornuis )
 blm<-bigLMStats( perfmodel, includeIntercept=T )
 intvals<-blm$beta["(Intercept)",]
 intimg<-makeImage(mask,intvals)
@@ -114,15 +120,16 @@ plotANTsImage(perfimg,slices='3x6x1',axis=3,outname=perfnm)
 
 ## Estimate priors from global map
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
-getpriors<-function( img, seg, n )
+getpriors<-function( img, seg )
   {
+  n<-max(seg)
   p<-rep(0,n)
   for ( i in 1:n ) p[i]<-median( img[ seg == as.numeric(i) ] )
   return(p)
   }
-intpriors<-getpriors( intimg, seg, max(seg) )
-tissuepriors<-getpriors( perfimg, seg, max(seg) )
-dvpriors<-getpriors( dvimg, seg, max(seg) )
+intpriors<-getpriors( intimg, seg  )
+tissuepriors<-getpriors( perfimg, seg )
+dvpriors<-getpriors( dvimg, seg )
 ```
 Use the median to be conservative.
 
@@ -136,8 +143,10 @@ for ( i in 1:ncol(aslmat) )
   segval<-segvec[i]
   if (segval==0) segval<-1
   localprior<-c(intpriors[segval], tissuepriors[ segval ], 
-                dvpriors[ segval ] )
+                dvpriors[ segval ], rep(0,ncompcor) )
   priorwt<-diag(length(localprior))*myPriorStrength
+  # no prior on compcor
+  priorwt[4:(4+ncompcor-1),4:(4+ncompcor-1)]<-0 
   blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt )
   bayesianperfusionloc[i]<-blm$beta[1]
   }
@@ -158,4 +167,46 @@ plotANTsImage(bperfimg,slices='3x6x1',axis=3,outname=bperfnm)
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
 plot(  perfimg[mask==1],  bperfimg[mask==1], 
   main=paste(cor(perfimg[mask==1],  bperfimg[mask==1])) )
+```
+
+
+## Quantify CBF
+Note: avg should actually be mean of control images - see `aslPerfusion`.
+```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
+ pcasl.parameters <- list( sequence="pcasl", m0=avg )
+ cbf <- quantifyCBF(  perfimg, mask,pcasl.parameters )$kmeancbf
+ bcbf<- quantifyCBF( bperfimg, mask,pcasl.parameters )$kmeancbf
+```
+
+## The basic cbf map 
+```{r, echo=F,warning=F,message=F,cache=FALSE}
+cbfnm=paste(figpre,'cbf.png',sep='')
+plotANTsImage(cbf,slices='3x6x1',axis=3,outname=cbfnm)
+```
+![Axial slices](`r cbfnm`)
+
+
+## The bayesian cbf map 
+
+```{r, echo=F,warning=F,message=F,cache=FALSE}
+bcbfnm=paste(figpre,'bcbf.png',sep='')
+plotANTsImage(bcbf,slices='3x6x1',axis=3,outname=bcbfnm)
+```
+![Axial slices](`r bcbfnm`)
+
+
+## Statistics: Global Basic CBF
+```{r, echo=F,warning=F,message=F,cache=FALSE}
+print(paste("Mean",mean(cbf),"sd",sd(cbf),"min",min(cbf),"max",max(cbf)))
+for ( i in as.numeric(1:6) )
+  print(paste("Tissue",i,"Mean",mean(cbf[seg==i]), "sd",sd(cbf[seg==i]),
+    "min",min(cbf[seg==i]),"max",max(cbf[seg==i])))
+```
+
+## Statistics: Global Bayesian CBF
+```{r, echo=F,warning=F,message=F,cache=FALSE}
+print(paste("Mean",mean(bcbf),"sd",sd(bcbf),"min",min(bcbf),"max",max(bcbf)))
+for ( i in as.numeric(1:6) )
+  print(paste("Tissue",i,"Mean",mean(bcbf[seg==i]), "sd",sd(bcbf[seg==i]),
+    "min",min(bcbf[seg==i]),"max",max(bcbf[seg==i])))
 ```
