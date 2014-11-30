@@ -1,0 +1,251 @@
+---
+title: "_ANTsR_ Bayesian CBF estimation with tissue probabilities"
+author: "Brian B. Avants et al."
+date: "November 29, 2014"
+output:
+  pdf_document:
+  slidy_presentation:
+    self_contained: yes
+---
+
+## Basic Goals
+
+- Use bayesian regression to stabilize CBF reconstruction.
+- Illustrate the effect of bayesian priors.
+- Show the reduction of artifactual effects.
+- NOTE: still WIP to incorporate in full pipeline.
+- TODO: robust regression params, more locality.
+- see [fMRIANTs](https://github.com/stnava/fMRIANTs) for this source file.
+
+## Define study parameters
+
+```{r basics, echo=TRUE,message=FALSE,cache=FALSE}
+library(ANTsR)
+library(RKRNS)
+myPriorStrength<-80.0 # controls prior influence
+basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
+setwd(basedir)
+motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
+baseSlice<-4
+seg<-antsImageRead("data3/seg2pcasl.nii.gz",3)
+tissuelist<-list()
+for ( i in c(1:max(seg)) )
+  tissuelist[[i]]<-antsImageRead(paste('data3/seg2pcaslprob',i,'.nii.gz',sep=''),3)
+ipttrn<-glob2rx(paste("*PCASL.nii.gz",sep=''))
+fns<- paste(basedir,list.files(path=basedir,
+  pattern = ipttrn ,recursive=T),sep='/')
+if ( all(dim(tissuelist[[1]])==1) 
+     | all(dim(seg)==1) |  !file.exists(fns[1]) )
+  stop(paste("Check your working directory",basedir))
+progbar<-FALSE
+```
+
+## Define output variables
+
+Define output prefix for this subject - usually would contain _unique ID_ concatenated with the _scan date_.
+
+E.g. "110099_20150108".
+
+```{r defout, echo=TRUE,cache=FALSE}
+prefix<-paste(tempfile())
+figpre<-paste(tempfile())
+```
+
+## Read the image 
+
+```{r reader, echo=TRUE,cache=FALSE}
+fn<-fns[1]
+if ( ! file.exists(fn) )
+  {
+  fn<-file.choose()
+  }
+pcasl<-antsImageRead(fn,4)
+```
+
+
+## Get time series average 
+
+```{r getavg, echo=TRUE,warning=F,message=F,cache=FALSE}
+avg<-getAverageOfTimeSeries(pcasl)
+```
+
+## Show the image 
+
+```{r shower, echo=F,warning=F,message=F,cache=FALSE}
+bsl<-baseSlice
+myslices<-paste(bsl,bsl+6,2,sep='x')
+onm=paste(figpre,'avg.png',sep='')
+plotANTsImage(avg,slices=myslices,axis=3,outname=onm)
+```
+![Axial slices](`r onm`)
+
+
+## Show Time Slice Before Motion Correction
+
+```{r showmo, echo=FALSE,warning=F,message=F,cache=FALSE}
+  boldarr<-as.array(pcasl)
+  bold2d<-as.antsImage(t(boldarr[20,20,,]))
+  onm2da=paste(figpre,'slices2da.png',sep='')
+  plotANTsImage(bold2d,outname=onm2da)
+```
+
+![Time Slices Before Motion Correction](`r onm2da`)
+
+## Get masks from data and from T1 map
+
+```{r masker, echo=TRUE,warning=F,message=F,cache=FALSE}
+N3BiasFieldCorrection(3,avg,avg,2)
+N3BiasFieldCorrection(3,avg,avg,2)
+mask<-antsImageClone(seg)
+mask[ mask > 0 ]<-1
+mask2<-getMask(avg,mean(avg),Inf,1)
+# cleans up mask to agree with data-driven mask2
+mask[mask2==0]<-0 
+seg[mask2==0]<-0
+aslmat<-timeseries2matrix(pcasl, mask)
+```
+
+## Compute a first pass perfusion map
+```{r perfpro, echo=TRUE,warning=F,message=F,cache=FALSE}
+  perfpro <- aslPerfusion( pcasl, interpolation="linear",
+        dorobust=0, useDenoiser=c(2), skip=11, 
+        moreaccurate=motionAcc, verbose=1, mask=mask, ncompcor=0 ) 
+# user might compare to useDenoiser=FALSE
+  pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
+  perfimg<-perfpro$perfusion
+```
+
+## Get some statistics on which to base priors
+
+```{r baser, echo=TRUE,warning=F,message=F,cache=FALSE}
+perfdf<-data.frame( xideal=perfpro$xideal, 
+            nuis=perfpro$nuisancevariables)
+perfdf<-perfdf[,!is.na(colMeans(perfdf))]
+perfmodel<-lm( aslmat ~.,data=perfdf) #, weights=perfpro$regweights )
+blm<-bigLMStats( perfmodel, includeIntercept=T )
+```
+
+
+## Estimate priors from global map
+```{r estimer, echo=TRUE,warning=F,message=F,cache=FALSE}
+getpriors<-function( img, seg )
+  {
+  n<-max(seg)
+  p<-rep(0,n)
+#  Use the median to be conservative.
+  segvec<-( seg[ seg > 0 ] )
+  for ( i in 1:n ) p[i]<-median( img[ segvec == as.numeric(i) ] )
+  return(p)
+  }
+bayespriormatfull<-blm$beta
+n<-max(seg)*nrow(bayespriormatfull)
+bayespriormat<-matrix( rep(0,n), nrow=max(seg) )
+for( i in 1:ncol(bayespriormat) )
+  bayespriormat[,i]<-getpriors( bayespriormatfull[i,] , seg )
+```
+
+## Extract priors to guide reestimate of perfusion map
+```{r extr, echo=TRUE,warning=F,message=F,cache=FALSE}
+X<-model.matrix( perfmodel )
+localtissuemat<-imageListToMatrix(tissuelist,mask)
+# instead use bayespriormatfull - to est cov?
+priorwt<-solve(cov(bayespriormat)+
+  diag(ncol(bayespriormat))*.1)*myPriorStrength
+priorwt<-diag(ncol(bayespriormat))*myPriorStrength
+# priorwt[3:ncol(bayespriormat),3:ncol(bayespriormat)]<-0
+```
+
+## Bayesian regression across all tissue models
+Compute expected cbf $\Pr(\text{CBF}|\text{tissue})\Pr(\text{tissue})$.
+```{r bayeser, echo=TRUE,warning=F,message=F,cache=FALSE}
+bayesianperfusionloc<-rep(0,ncol(aslmat))
+pb <- txtProgressBar(min = 1, max = ncol(aslmat), style = 3)
+for ( i in 1:ncol(aslmat) )
+  {
+  if (progbar)  setTxtProgressBar(pb, i)
+  # here is where we get really bayesian 
+  # average over all tissue models ...
+  localtissuemat[,i]<-abs(localtissuemat[,i])/
+    sum(abs(localtissuemat[,i]))
+  for ( segval in 1:max(seg) )
+    {
+    tissueprior<-localtissuemat[segval,i]
+    localprior<-bayespriormat[segval,]
+    # study this carefully ...
+    blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt )
+#      , regweights=perfpro$regweights )
+    locbeta<-blm$beta[1]
+    bayesianperfusionloc[i]<-bayesianperfusionloc[i]+
+      locbeta*tissueprior
+    }
+  }
+close(pb)
+```
+
+
+## Standard vs bayesian regularized perfusion map 
+
+```{r stanvb, echo=F,warning=F,message=F,cache=FALSE}
+perfnm=paste(figpre,'perf.png',sep='')
+plotANTsImage(perfimg,slices=myslices,axis=3,outname=perfnm)
+bperfimg<-makeImage(mask,bayesianperfusionloc)
+bperfnm=paste(figpre,'bayes_perf.png',sep='')
+plotANTsImage(bperfimg,slices=myslices,axis=3,outname=bperfnm)
+```
+![Axial slices](`r perfnm`)
+![Axial slices](`r bperfnm`)
+
+## Plot the correlation between bayesian and basic perfusion
+
+```{r plotter, echo=F,warning=F,message=F,cache=FALSE}
+plot(  perfimg[mask==1],  bperfimg[mask==1], 
+  main=paste(cor(perfimg[mask==1],  bperfimg[mask==1])) )
+```
+
+## M0 image
+```{r m0, echo=F,warning=F,message=F,cache=FALSE}
+m0nm=paste(figpre,'m0.png',sep='')
+plotANTsImage(perfpro$m0,slices=myslices,axis=3,outname=m0nm)
+```
+![Axial slices](`r m0nm`)
+
+## Quantify CBF
+See `aslPerfusion`.
+```{r qcbf, echo=TRUE,warning=F,message=F,cache=FALSE}
+ # SmoothImage(3,perfpro$m0,3.0,perfpro$m0)
+ pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
+ cbf <- quantifyCBF(  perfimg, mask,pcasl.parameters )
+ bcbf<- quantifyCBF( bperfimg, mask,pcasl.parameters )
+```
+
+## Basic and bayesian cbf maps
+
+```{r bbb, echo=F,warning=F,message=F,cache=FALSE}
+cbf$kmeancbf[ cbf$kmeancbf < 0 ]<-0
+cbfnm=paste(figpre,'cbf.png',sep='')
+plotANTsImage(cbf$kmeancbf,slices=myslices,axis=3,outname=cbfnm)
+cbf<-cbf$meancbf
+bcbf$kmeancbf[ bcbf$kmeancbf < 0 ]<-0
+bcbfnm=paste(figpre,'bcbf.png',sep='')
+plotANTsImage(bcbf$meancbf,slices=myslices,axis=3,outname=bcbfnm)
+bcbf<-bcbf$meancbf
+```
+![Axial slices](`r cbfnm`)
+![Axial slices](`r bcbfnm`)
+
+
+## Statistics: Global Basic CBF
+```{r gcb, echo=F,warning=F,message=F,cache=FALSE}
+print(paste("Mean",mean(cbf),"sd",sd(cbf),"min",min(cbf),"max",max(cbf)))
+for ( i in as.numeric(1:6) )
+  print(paste("Tissue",i,"Mean",mean(cbf[seg==i]), "sd",sd(cbf[seg==i]),
+    "min",min(cbf[seg==i]),"max",max(cbf[seg==i])))
+```
+
+## Statistics: Global Bayesian CBF
+```{r bcb, echo=F,warning=F,message=F,cache=FALSE}
+print(paste("Mean",mean(bcbf),"sd",sd(bcbf),"min",min(bcbf),"max",max(bcbf)))
+for ( i in as.numeric(1:6) )
+  print(paste("Tissue",i,"Mean",mean(bcbf[seg==i]), "sd",sd(bcbf[seg==i]),
+    "min",min(bcbf[seg==i]),"max",max(bcbf[seg==i])))
+```
