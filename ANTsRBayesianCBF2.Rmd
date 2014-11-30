@@ -22,13 +22,14 @@ output:
 ```{r basics, echo=TRUE,message=FALSE,cache=FALSE}
 library(ANTsR)
 library(RKRNS)
-myPriorStrength<-60.0 # controls prior influence
+myPriorStrength<-50.0 # controls prior influence
 basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
 setwd(basedir)
 useDataDrivenMask<-1
 motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
-id=2 ; baseSlice<-8   # param for subject 2
-id<-"" ; baseSlice<-4 # param for subject 1 
+id=2;   baseSlice<-8 # param for subject 2
+id<-""; baseSlice<-4 # param for subject 1 
+robustnessvalue<-0.95 # higher rejects more data. 0.9 or less - keep all
 seg<-antsImageRead(paste("data3/seg2pcasl",id,".nii.gz",sep=''),3)
 tissuelist<-list()
 for ( i in c(1:max(seg)) )
@@ -113,7 +114,7 @@ aslmat<-timeseries2matrix(pcasl, mask)
 ## Compute a first pass perfusion map
 ```{r perfpro, echo=TRUE,warning=F,message=F,cache=FALSE}
   perfpro <- aslPerfusion( pcasl, interpolation="linear",
-        dorobust=0.96, useDenoiser=c(2), skip=5, 
+        dorobust=robustnessvalue, useDenoiser=c(2), skip=5, 
         moreaccurate=motionAcc, verbose=1, mask=mask, ncompcor=0 ) 
 # user might compare to useDenoiser=FALSE
   pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
@@ -201,8 +202,14 @@ for ( i in 1:ncol(aslmat) )
     tissueprior<-localtissuemat[segval,i]
     localprior<-bayespriormat[segval,]
     # study this carefully ...
-    blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt, 
+    if ( segval == 1 ) {
+      blm<-bayesianlm(  X, aslmat[,i],  localprior, priorwt*0.1,
                       regweights=perfpro$regweights )
+      
+    } else {
+      blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt, 
+                      regweights=perfpro$regweights )
+    }
     locbeta<-blm$beta[1]
     bayesianperfusionloc[segval,i]<-locbeta
     bayesianperfusionlocp[segval,i]<-locbeta*tissueprior
@@ -257,7 +264,7 @@ plotANTsImage(cbf$kmeancbf,slices=myslices,axis=3,outname=cbfnm)
 cbf<-cbf$meancbf
 bcbf$kmeancbf[ bcbf$kmeancbf < 0 ]<-0
 bcbfnm=paste(figpre,'bcbf.png',sep='')
-plotANTsImage(bcbf$meancbf,slices=myslices,axis=3,outname=bcbfnm)
+plotANTsImage(bcbf$kmeancbf,slices=myslices,axis=3,outname=bcbfnm)
 bcbf<-bcbf$meancbf
 ```
 ![Axial slices](`r cbfnm`)
