@@ -22,14 +22,15 @@ output:
 ```{r basics, echo=TRUE,message=FALSE,cache=FALSE}
 library(ANTsR)
 library(RKRNS)
-myPriorStrength<-50.0 # controls prior influence
+myPriorStrength<-40.0 # controls prior influence
 basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
 setwd(basedir)
-useDataDrivenMask<-1
+useDataDrivenMask<-3
+denoisingComponents<-10
 motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
 id=2;   baseSlice<-8 # param for subject 2
 id<-""; baseSlice<-4 # param for subject 1 
-robustnessvalue<-0.95 # higher rejects more data. 0.9 or less - keep all
+robustnessvalue<-0.0 # higher rejects more data. 0.9 or less - keep all
 seg<-antsImageRead(paste("data3/seg2pcasl",id,".nii.gz",sep=''),3)
 tissuelist<-list()
 for ( i in c(1:max(seg)) )
@@ -113,10 +114,12 @@ aslmat<-timeseries2matrix(pcasl, mask)
 
 ## Compute a first pass perfusion map
 ```{r perfpro, echo=TRUE,warning=F,message=F,cache=FALSE}
-  perfpro <- aslPerfusion( pcasl, interpolation="linear",
-        dorobust=robustnessvalue, useDenoiser=c(2), skip=5, 
-        moreaccurate=motionAcc, verbose=1, mask=mask, ncompcor=0 ) 
+  perfpro <- aslPerfusion( pcasl, interpolation="linear", skip=25,
+        dorobust=robustnessvalue, useDenoiser=denoisingComponents,  
+        moreaccurate=motionAcc, verbose=1, mask=mask, 
+        ncompcor=0 ) 
 # user might compare to useDenoiser=FALSE
+  N3BiasFieldCorrection(3,perfpro$m0,perfpro$m0,2)
   pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
   perfimg<-perfpro$perfusion
 ```
@@ -127,6 +130,11 @@ aslmat<-timeseries2matrix(pcasl, mask)
 perfdf<-data.frame( xideal=perfpro$xideal, 
             nuis=perfpro$nuisancevariables)
 perfdf<-perfdf[,!is.na(colMeans(perfdf))]
+if (  id == "" ) {
+  perfpro$regweights[1:6]<-0
+  pp<-length(perfpro$regweights)-6+1
+  perfpro$regweights[pp:length(perfpro$regweights)]<-0
+}
 perfmodel<-lm( aslmat ~.,data=perfdf, weights=perfpro$regweights )
 blm<-bigLMStats( perfmodel, includeIntercept=T )
 ```
@@ -148,6 +156,12 @@ n<-max(seg)*nrow(bayespriormatfull)
 bayespriormat<-matrix( rep(0,n), nrow=max(seg) )
 for( i in 1:ncol(bayespriormat) )
   bayespriormat[,i]<-getpriors( bayespriormatfull[i,] , seg )
+```
+
+## The prior values for perfusion - per class
+
+```{r printpriors, echo=TRUE,warning=F,message=F,cache=FALSE}
+print(bayespriormat[,2])
 ```
 
 ## Extract priors to guide reestimate of perfusion map
@@ -203,7 +217,8 @@ for ( i in 1:ncol(aslmat) )
     localprior<-bayespriormat[segval,]
     # study this carefully ...
     if ( segval == 1 ) {
-      blm<-bayesianlm(  X, aslmat[,i],  localprior, priorwt*0.1,
+      localprior<-localprior*0.25
+      blm<-bayesianlm(  X, aslmat[,i],  localprior, priorwt,
                       regweights=perfpro$regweights )
       
     } else {
