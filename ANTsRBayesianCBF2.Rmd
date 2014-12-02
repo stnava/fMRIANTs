@@ -26,7 +26,7 @@ myPriorStrength<-40.0 # controls prior influence
 basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
 setwd(basedir)
 useDataDrivenMask<-3
-denoisingComponents<-1:12
+denoisingComponents<-0:12
 compcorComponents<-0
 motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
 id<-""; baseSlice<-4 # param for subject 1 
@@ -170,12 +170,11 @@ print(bayespriormat[,2])
 X<-model.matrix( perfmodel )
 localtissuemat<-imageListToMatrix(tissuelist,mask)
 priorwt<-diag(ncol(bayespriormat))*myPriorStrength
-priorwt[3:ncol(priorwt),3:ncol(priorwt)]<-0
 ## alternative priors below
 # instead use bayespriormatfull - to est cov?
 # priorwt<-solve(cov(bayespriormat)+
-#  diag(ncol(bayespriormat))*.1)*myPriorStrength
-# priorwt[3:ncol(bayespriormat),3:ncol(bayespriormat)]<-0
+#   diag(ncol(bayespriormat))*.1)*myPriorStrength
+priorwt[3:ncol(priorwt),3:ncol(priorwt)]<-0
 ```
 
 ## Bayesian regression across all tissue models
