@@ -50,17 +50,6 @@ hook_plot = knit_hooks$get('plot')
 knit_hooks$set(plot = function(x, options) paste('\n', hook_plot(x, options), sep = ''))
 ```
 
-## Define output variables
-
-Define output prefix for this subject - usually would contain _unique ID_ concatenated with the _scan date_.
-
-E.g. "110099_20150108".
-
-```{r defout, echo=TRUE,cache=FALSE}
-prefix<-paste(tempfile())
-figpre<-paste(tempfile())
-```
-
 ## Read the image 
 
 ```{r reader, echo=TRUE,cache=FALSE}
@@ -70,6 +59,29 @@ if ( ! file.exists(fn) )
   fn<-file.choose()
   }
 pcasl<-antsImageRead(fn,4)
+```
+
+# A non-expository wrapper function for this project
+
+```{r bcbfun, echo=F,warning=F,message=F,cache=FALSE,eval=FALSE}
+bcbf<-bayesianCBF( pcasl, seg, tissuelist,
+  myPriorStrength=30.0,
+  useDataDrivenMask=3,
+  denoisingComponents=1:8,
+  robustnessvalue=0.95 ) # higher val up to 1 throws more out
+```
+
+
+
+## Define output variables
+
+Define output prefix for this subject - usually would contain _unique ID_ concatenated with the _scan date_.
+
+E.g. "110099_20150108".
+
+```{r defout, echo=TRUE,cache=FALSE}
+prefix<-paste(tempfile())
+figpre<-paste(tempfile())
 ```
 
 
@@ -429,3 +441,4 @@ for ( i in as.numeric(1:6) ) {
   hist(bcbf[seg==i])
   }
 ```
+
