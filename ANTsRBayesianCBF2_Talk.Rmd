@@ -56,10 +56,14 @@ $$
 \Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)
 $$
 
+Laplace's restatement: _the probability of a cause (given an event) is proportional to the probability of the event (given its cause)_
+
+- aside: Napoleon asked why Laplace had failed to mention God in his book on astronomy. Laplace replied: "Sire, I have no need of that hypothesis."
+
 ## How would Reverend Thomas Bayes respond to Dirty Harry?
 
 $$
-\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)=\\
+\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~) \propto\\
 \Pr( \text{ head blown clean off by .44 Magnum}~| \text{ Fired 5 shots}~    ) \\
 \Pr( \text{ Fired 5 shots}~)
 $$
@@ -70,11 +74,13 @@ $$
 ## How would Reverend Thomas Bayes respond to Dirty Harry?
 
 $$
-\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)=\\
+\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)\propto\\
 1.0 * \Pr( \text{ Fired 5 shots}~)
 $$
 
-and there is your answer --- a truth well captured by Eastwood's original phrasing.
+* There is your answer --- a truth well captured by Eastwood's original phrasing.
+
+* "The amount we wager shows how strongly we believe something."
 
 ## Basic goals today
 
@@ -125,11 +131,11 @@ $$\text{asl signal}_i~\approx \text{tc}~+ \text{nuisance variables}\\
 This leads to an equation of the form (explicitly):
 
 $$ \text{asl signal}_i = \text{tc} \beta_{\text{tc}} +\\
- \text{nuisance variables} \mathbf{beta}_{\text{nuis}}\\
+ \text{(nuisance variables)} \mathbf{\beta}_{\text{nuis}}\\
 ~+ \text{constant}~+ \epsilon$$
 
 The $\beta_{\text{tc}}$, i.e. the scalar regression solution for the tag-control
-parameter, is proportional to cerebral blood flow. $\mathbf{beta}_{\text{nuis}}$ is usually a matrix.
+parameter, is proportional to cerebral blood flow. $\mathbf{\beta}_{\text{nuis}}$ is usually a matrix.
 
 See [Ze Wang's pubmed/22789842](http://www.ncbi.nlm.nih.gov/pubmed/22789842)
 
@@ -816,10 +822,81 @@ for ( i in as.numeric(1:6) ) {
   }
 ```
 
+## Population level results: Age
 
-## Population level results
+```{r pncage, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+library(ANTsR)
+library(e1071)
+library(randomForest)
+library(effects)
+library(psych)
+library(BMS)
+library(pheatmap)
+for ( rawcbf in c(F,T) ) {
+  for ( usebayes in c(T,F) )
+  {
+    setwd("/Users/stnava/data/PNC/cbfstudies/")
+    demog<-read.csv("../PNC_demog.csv")
+    ids<-demog$bblid
+    # sample data
+    cbfex<-read.csv("bcbf/106246/20110917/bcbf/106246_20110917_roicbf.csv")
+    nc<-ncol(cbfex)
+    nr<-nrow(demog)
+    nent<-nr*nc
+    cbfdemog<-data.frame( matrix( rep(NA,nent), ncol=nc ) )
+    colnames(cbfdemog)<-colnames(cbfex)
+    ct<-1
+    for ( x in ids )
+    {
+      srch<-paste("bcbf_prior_00/",x,
+      "/*/bcbf/*roicbf.csv",sep='')
+      ffn<-Sys.glob(srch)
+      srch2<-paste("bcbf/",x,"/*/bcbf/*roicbf.csv",sep='')
+      ffn2<-Sys.glob(srch2)
+      if (length(ffn)==1 & length(ffn2)==1)
+      {
+        if (!usebayes ) cbfdemog[ct,]<-read.csv(ffn)[1,]
+        if ( usebayes ) cbfdemog[ct,]<-read.csv(ffn2)[1,]
+      }
+      ct<-ct+1
+    }
+    bdemog<-cbind(demog,cbfdemog)
+    rmns<-rowMeans(cbfdemog,na.rm=T)
+    rcbf<-cbfdemog/rmns
+    mnvs<-apply(rcbf,FUN=min,MARGIN=1,na.rm=T)
+    selsubs<-rep(TRUE,nr)
+    selsubs[is.na(rmns)]<-F
+    # selsubs[is.na(rmns)|mnvs<0]<-F
+    # selsubs[is.na(rmns)|rmns<20|rmns>70|mnvs<0]<-F
+    fcbfdemog<-cbfdemog[, colMeans(cbfdemog,na.rm=T) > 10 ]
+    subcbf<-residuals( lm(
+      data.matrix(fcbfdemog[selsubs,]) ~ 1 ))
+      subcbf<-fcbfdemog[selsubs,]/rowMeans(fcbfdemog[selsubs,],na.rm=T)
+      if( rawcbf ) subcbf<-fcbfdemog[selsubs,]
+      predval<-antsrimpute(bdemog[selsubs,]$age)
+      pdemog<-data.frame( age=predval,
+        gen=bdemog[selsubs,]$male,
+        edu=antsrimpute(demog$mom_edu_years[selsubs]),
+        subcbf )
+      set.seed(11)
+      selector<-rnorm(nrow(pdemog))
+      trainer<-selector<0.5
+      mydf1<-pdemog[trainer,]
+      mydf2<-pdemog[!trainer,]
+      mdl<-svm(age~.,data=mydf1)
+      predOut<-predict(mdl,newdata=mydf2)
+      plot(predOut,mydf2$age)
+      print(paste("usebayes",usebayes,"useraw",rawcbf))
+      print(cor.test(predOut,mydf2$age))
+      print(mean(abs(predOut-mydf2$age)))
+      }
+    }
+```
 
-```{r pnc, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+
+## Population level results: Cognition
+
+```{r pnccog, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
 library(ANTsR)
 library(e1071)
 library(randomForest)
@@ -886,6 +963,7 @@ mydf2<-pdemog[!trainer,]
 mdl<-svm(cog~.,data=mydf1)
 predOut<-predict(mdl,newdata=mydf2)
 plot(predOut,mydf2$cog)
+print(paste("usebayes",usebayes,"useraw",rawcbf))
 print(cor.test(predOut,mydf2$cog))
 print(mean(abs(predOut-mydf2$cog)))
 }
