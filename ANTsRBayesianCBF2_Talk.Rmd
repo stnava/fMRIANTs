@@ -1,0 +1,912 @@
+---
+title: "_ANTsR_ Bayesian CBF estimation with tissue probabilities"
+author: "Brian B. Avants et al."
+date: "January 13, 2015"
+output:
+  pdf_document:
+  slidy_presentation:
+    self_contained: false
+    incremental: true
+    highlight: pygments
+    transition: fade
+    font_adjustment: +4
+    fig_caption: true
+    fig_retina: 2
+    duration: 30
+    footer: "by Brian Avants, created w/ANTsR"
+  revealjs_presentation:
+    pandoc_args: [ "--slide-level", "2" ]
+    incremental: true
+    widescreen: true
+    smaller: false
+    theme: night
+    transition: fade
+    highlight: zenburn
+    center: true
+    self_contained: false
+---
+
+## Acknowledgements
+
+* J Detre
+
+* B Kandel
+
+* P Dhillon
+
+* L Ungar
+
+* JT Duda
+
+* PA Cook
+
+* JJ Wang
+
+* M Grossman
+
+## Motivation
+
+![](http://i.dailymail.co.uk/i/pix/2013/08/28/article-2403742-1B7EC094000005DC-760_634x311.jpg)
+
+I know what you're thinking. "Did he fire six shots or only five?" Well to tell you the truth ... I kinda lost track myself. But being this is a .44 Magnum, the most powerful handgun in the world and would blow your head clean off, you've gotta ask yourself one question: "Do I feel lucky?" Well, do ya, punk?
+
+## How would Reverend Thomas Bayes respond to Dirty Harry?
+
+$$
+\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)
+$$
+
+## How would Reverend Thomas Bayes respond to Dirty Harry?
+
+$$
+\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)=\\
+\Pr( \text{ head blown clean off by .44 Magnum}~| \text{ Fired 5 shots}~    ) \\
+\Pr( \text{ Fired 5 shots}~)
+$$
+
+* These are equivalent statements, according to Bayes.
+
+
+## How would Reverend Thomas Bayes respond to Dirty Harry?
+
+$$
+\Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)=\\
+1.0 * \Pr( \text{ Fired 5 shots}~)
+$$
+
+and there is your answer --- a truth well captured by Eastwood's original phrasing.
+
+## Basic goals today
+
+- Use bayesian regression to _stabilize_ CBF reconstruction.
+- Illustrate the effect of bayesian priors.
+    * Reduction of artifactual effects.
+    * Improvement in prediction in populations.
+- Avoid getting head blown clean off.
+- NOTE: still WIP to incorporate in full pipeline.
+- see [fMRIANTs](https://github.com/stnava/fMRIANTs) for this source file.
+
+## Bayesian intuition: Tissue segmentation
+
+$$\Pr( \text{ tissue}_i~| \text{ intensity } )(x) \propto \\
+  \Pr( \text{ intensity}~| \text{ tissue}_i~)(x) \\
+  \Pr( \text{ tissue}_i~)(x) $$
+
+The product of:
+
+* _data term_: $\Pr( \text{ intensity}~| \text{ tissue}_i~)(x)$
+
+* _prior_: $\Pr( \text{ tissue}_i~)(x)$
+
+gives the posterior probability - *spatially varying* in K tissues.  
+
+## Bayesian intuition: Perfusion
+
+$$\Pr( \text{ perfusion}_i~| \text{ time series}~)(x) \propto \\
+  \Pr( \text{ time series}~| \text{ perfusion}_i~)(x) \\
+  \Pr( \text{ perfusion}_i~)(x) $$
+
+The product of:
+
+* _data term_: $\Pr( \text{ time series } | \text{ perfusion}_i~)(x)$
+
+* _prior_: $\Pr( \text{ tissue}_i~)(x)$
+
+gives the posterior probability - *spatially varying* in K tissues.
+this is still a crude statement --- more details later.
+
+## Regression formulation for perfusion
+
+Using *R* notation:
+
+$$\text{asl signal}_i~\approx \text{tc}~+ \text{nuisance variables}\\
+~+ \text{baseline signal}~+ \epsilon$$
+
+This leads to an equation of the form (explicitly):
+
+$$ \text{asl signal}_i = \text{tc} \beta_{\text{tc}} +\\
+ \text{nuisance variables} \mathbf{beta}_{\text{nuis}}\\
+~+ \text{constant}~+ \epsilon$$
+
+The $\beta_{\text{tc}}$, i.e. the scalar regression solution for the tag-control
+parameter, is proportional to cerebral blood flow. $\mathbf{beta}_{\text{nuis}}$ is usually a matrix.
+
+See [Ze Wang's pubmed/22789842](http://www.ncbi.nlm.nih.gov/pubmed/22789842)
+
+## Inclusion of priors via regression
+
+$y$ is the asl signal and $X$ is the predictor matrix.
+
+$$ \|  y - X \beta \|^2 $$
+
+$$\text{vs}$$
+
+$$ \|  y - X \beta \|^2  + \| \beta - \beta_0 \|_\Sigma^2 $$
+
+with
+
+$$ \| v \|^2_\Sigma =   v^T  \Sigma^{-1} v $$
+
+and $v$ representing any vector,
+$\Sigma$ is the $\beta$ covariance matrix. $\Sigma^{-1}$ can
+be treated as the *prior weighting*. Obvious
+connections with Tikhonov regularization,
+Mahalanobis distance and ridge regression.
+
+
+## How do we choose priors?
+
+* Majority of studies, uninformative(ish) (flat or functional) priors
+
+* Informed Bayes (rarely used in statistical practice, afaik), priors might be from theoretical arguments or from independent data
+
+*  In "empirical" Bayes, priors derive from the input data
+
+*  Both are interesting for our purposes
+
+## Our goals for these models
+
+* Build bayesian regression models for estimating perfusion
+
+* Increase stability of uncertain computations: regularization.
+
+* Longer term, can be used for inference or in an EM algorithm (yielding better parameter estimates)
+
+* Empirical bayes: no "outside" data needed - works w/any population of images
+
+* Informative priors from outside data: spatial maps etc ... (maybe too soon for this)
+
+## Discussion of this general type of model remains active
+
+* Recent discussion (by statisticians) online relevant to this  [gelman- assessing prior/likelihood conflict](http://andrewgelman.com/2014/07/02/informed-bayesian-assessing-prior-informativeness-prior-likelihood-conflict/)
+
+* Height example: uniform(1,8 feet) vs gaussian(5.9,2 feet)
+
+* Conclusion:  "employ context & domain expertise, be conservative"
+
+## Discussion of this general type of model remains active
+
+* My opinion: *priors are debated endlessly until they are proven "to work" at
+large-scale and on real data*
+
+* see the "original syn" paper, our ANTs cortical thickness papers,
+  Paul's MALF papers, our BRATS paper, the SCCAN and EANAT papers,
+  Ben's recent work, etc ... just our own efforts.
+
+* Common theme of all of these papers: *prior-constrained* learning from data
+
+* Conclusion:  "employ context & domain expertise, be conservative"
+
+## What is "conservative" in this context?
+
+* Should we just "trust the data"?
+
+* Or try to compute physiologically plausible CBF values?
+
+* My opinion: use a *weakly informative* prior model (ala Gelman) when data is
+reasonable and a *strongly informative* prior when data tends to be unreliable
+
+* The model I will propose is tunable and allows spatial variability, e.g. in the prior strength.
+
+* I will discuss a _specific instance_ of a _general class_ of possible
+solutions to Bayesian regularization of perfusion estimates.
+
+## The general class
+
+$$ X_\text{asl}(x) \approx~\text{tc~} + \text{ noise parameters }(x) + \epsilon $$
+
+constrained by: tissue$(x)$, $\beta(x)$, neighborhood$(x)$, covariance$(x)$ and reliability$(t)(x)$
+
+## The specific instance
+
+$$ X_\text{asl}(x) \approx~\text{tc~} + \text{ noise parameters } + \epsilon $$
+
+* constrained by: tissue$(x)$, $\beta$ (global), covariance (global) and reliability$(t)$
+
+* will constrain $\beta_\text{tissue}$ using "empirical Bayes" to do "Bayesian model averaging" which amounts to computing the expected perfusion, given the
+local tissue models
+
+## Let's look at some data with [*ANTsR*](http://stnava.github.io/ANTsR/) {.flexbox .vcenter}
+
+<div class="columns-2">
+![](http://www.raisingmiro.com/wp-content/uploads/2012/01/nazca5.jpg)
+
+- Scalable *R* based statistics
+- Image specific representations for 2D, 3D, 4D data, neighborhoods etc
+- These enable one to (relatively easily) implement complex spatially
+informed statistical models
+- Assists reproducible science, communication of results, etc
+- Non-trivial arbitrary dimensionality resource unavailable via other software
+</div>
+
+## Preprocessing assumed to be done for each subject before this talk
+
+* run `antsCorticalThickness.sh`
+
+* collect spatial probabilty maps for the t1 brain (here, 6 tissues)
+
+* map probability maps to the resolution at which you will compute your stats (e.g. ASL res)
+
+* these help us create priors
+
+## Next several slides show some code that is needed to produce the data content of this talk
+
+...
+
+## Define study parameters: Libraries & data location
+
+```{r basics, echo=TRUE,message=FALSE,cache=FALSE, eval=TRUE}
+library(boot)
+library(visreg)
+library(ANTsR)
+library(RKRNS)
+library(BMS)
+library(ggvis) # intended to replace ggplot2
+myPriorStrength<-50.0 # controls prior influence
+basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
+setwd(basedir)
+useDataDrivenMask<-3
+denoisingComponents<-1:8
+compcorComponents<-0
+motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
+id<-""; baseSlice<-4 # param for subject 1
+# id=2;   baseSlice<-8 # param for subject 2
+robustnessvalue<-0.95 # higher rejects more data. 0.9 or less - keep all
+seg<-antsImageRead(paste("data3/seg2pcasl",id,".nii.gz",sep=''),3)
+tissuelist<-list()
+for ( i in c(1:max(seg)) )
+  tissuelist[[i]]<-antsImageRead(paste('data3/seg2pcasl',id,'prob',i,'.nii.gz',sep=''),3)
+ipttrn<-glob2rx(paste("*PCASL",id,".nii.gz",sep=''))
+fns<- paste(basedir,list.files(path=basedir,
+  pattern = ipttrn ,recursive=T),sep='/')
+if ( all(dim(tissuelist[[1]])==1)
+     | all(dim(seg)==1) |  !file.exists(fns[1]) )
+  stop(paste("Check your working directory",basedir))
+progbar<-FALSE
+hook_plot = knit_hooks$get('plot')
+knit_hooks$set(plot = function(x, options) paste('\n', hook_plot(x, options), sep = ''))
+```
+
+## Read an ASL image
+
+```{r reader, echo=TRUE,cache=FALSE, eval=TRUE}
+fn<-fns[1]
+if ( ! file.exists(fn) )
+  {
+  fn<-file.choose()
+  }
+pcasl<-antsImageRead(fn,4)
+```
+
+## A non-expository wrapper function for this project
+
+```{r bcbfun, echo=F,warning=F,message=F,cache=FALSE,eval=F, eval=TRUE}
+bcbfl<-bayesianCBF( pcasl, seg, tissuelist,
+  myPriorStrength=myPriorStrength, localweights=F,
+  useDataDrivenMask=3,
+  denoisingComponents=1:2,
+  robustnessvalue=0 ) # higher val up to 1 throws more out
+```
+This function wraps somes steps briefly discussed below.
+In contrast to what's implemented below, this model is spatially constrained.
+
+## Define output variables
+
+Define output prefix for this subject - usually would contain _unique ID_ concatenated with the _scan date_.
+
+E.g. "110099_20150108".
+
+```{r defout, echo=TRUE,cache=FALSE, eval=TRUE}
+prefix<-paste(tempfile())
+figpre<-paste(tempfile())
+m0nm=paste(figpre,'m0.png',sep='')
+cperfnm=paste(figpre,'perf_crude.png',sep='')
+perfnm=paste(figpre,'perf.png',sep='')
+bperfnm=paste(figpre,'bayes_perf.png',sep='')
+cbfnm=paste(figpre,'cbf.png',sep='')
+bcbfnm=paste(figpre,'bcbf.png',sep='')
+bcbfnml=paste(figpre,'bcbf.png',sep='')
+```
+
+
+## Get time series average
+
+```{r getavg, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+avg<-getAverageOfTimeSeries(pcasl)
+```
+a "template" for this time series
+
+## Show the image
+
+```{r shower, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+bsl<-baseSlice
+myslices<-paste(bsl,bsl+6,2,sep='x')
+onm=paste(figpre,'avg.png',sep='')
+plotANTsImage(avg,slices=myslices,axis=3,outname=onm)
+plotANTsImage(avg,slices=myslices,axis=3,outname=perfnm)
+plotANTsImage(avg,slices=myslices,axis=3,outname=bperfnm)
+plotANTsImage(avg,slices=myslices,axis=3,outname=cperfnm)
+```
+![Axial slices](`r onm`)
+
+
+## Show Time Slice Before Motion Correction
+
+```{r showmo, echo=FALSE,warning=F,message=F,cache=FALSE, eval=TRUE}
+  boldarr<-as.array(pcasl)
+  bold2d<-as.antsImage(t(boldarr[20,20,,]))
+  onm2da=paste(figpre,'slices2da.png',sep='')
+  plotANTsImage(bold2d,outname=onm2da)
+```
+Useful for quickly evaluating motion issues or other artifacts.
+
+![Time Slices Before Motion Correction](`r onm2da`)
+
+## Get masks from data and from T1 map
+
+```{r masker, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+N3BiasFieldCorrection(3,avg,avg,2)
+N3BiasFieldCorrection(3,avg,avg,2)
+mask<-antsImageClone(seg)
+mask[ mask > 0 ]<-1
+if ( useDataDrivenMask > 0 )
+  {
+  mask2<-getMask(avg,mean(avg),Inf,useDataDrivenMask)
+  # cleans up mask to agree with data-driven mask2
+  mask[mask2==0]<-0
+  seg[mask2==0]<-0
+  }
+aslmat<-timeseries2matrix(pcasl, mask)
+```
+
+## Compute a first pass perfusion map
+```{r perfpro, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+  perfpro <- aslPerfusion( pcasl, interpolation="linear", skip=10,
+        dorobust=0, useDenoiser=NA,  
+        moreaccurate=0, verbose=0, mask=mask, useBayesian=0,
+        ncompcor=4 )
+  N3BiasFieldCorrection(3,perfpro$m0,perfpro$m0,2)
+  pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
+  perfimg<-perfpro$perfusion
+```
+
+
+## Let's look at some interesting voxels
+
+```{r intvox, eval=TRUE}
+intvox<-antsImageRead(paste("data3/PCASL_5_voxel",id,".nii.gz",sep=''),3)
+intvoxvec<-intvox[mask==1]
+voxlist<-rep(NA,max(intvox))
+# 1 - csf, 2 - gm, 3 - wm, 4 - wm & gm , 5 - artifact
+voxnm<-c("csf","gm", "wm", "wm/gm","artifact")
+voxmat<-matrix( rep(0,length(voxnm)*nrow(aslmat)), ncol=length(voxnm) )
+for ( i in 1:max(intvox)) {
+  voxlist[i]<-which(intvoxvec==as.numeric(i))
+  voxmat[,i]<-aslmat[,voxlist[i]]
+  plot(ts(aslmat[,voxlist[i]]),main=voxnm[i])
+#  points(mean(aslmat[,voxlist[i]])+perfpro$xideal*10,col='red',type='l')
+  }
+```
+
+
+## Visualize T/C at a GM voxel
+
+```{r ggvis, eval=TRUE}
+colnames(voxmat)<-voxnm
+voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
+voxmat %>% ggvis(x = ~tc, y = ~gm, size := 200, opacity := 0.4,
+  shape = ~factor(tc)) %>% layer_points()
+```
+
+
+## Visualize T/C at a WM voxel
+
+```{r ggvisw, eval=TRUE}
+colnames(voxmat)<-voxnm
+voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
+voxmat %>% ggvis(x = ~tc, y = ~wm, size := 200, opacity := 0.4,
+  shape = ~factor(tc)) %>% layer_points()
+```
+
+## Visualize T/C at a CSF voxel
+
+  ```{r ggvisc, eval=TRUE}
+  colnames(voxmat)<-voxnm
+  voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
+  voxmat %>% ggvis(x = ~tc, y = ~csf, size := 200, opacity := 0.4,
+    shape = ~factor(tc)) %>% layer_points()
+```
+
+## Visualize T/C at an artifact voxel
+
+```{r ggvisa, eval=TRUE}
+colnames(voxmat)<-voxnm
+voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
+voxmat %>% ggvis(x = ~tc, y = ~artifact, size := 200, opacity := 0.4,
+shape = ~factor(tc)) %>% layer_points()
+```
+
+
+## Visualize T/C at a GM voxel
+
+```{r ggvisg, eval=TRUE}
+colnames(voxmat)<-voxnm
+voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
+voxmat %>% ggvis(x = ~tc, y = ~gm, size := 200, opacity := 0.4,
+  shape = ~factor(tc)) %>% layer_points()
+```
+
+
+## Let's look at the GM voxel regression
+
+```{r intvox2, eval=TRUE}
+locdf<-data.frame(voxasl=aslmat[,voxlist[2]],
+                  tc=as.factor(perfpro$xideal),
+                  nuis=perfpro$nuisancevariables)
+gmdl<-lm(voxasl~.,data=locdf)
+print(summary(gmdl))
+visreg(gmdl,'tc')
+```
+
+## Bootstrap the GM voxel regression
+
+```{r gmboot, eval=TRUE}
+# Bootstrap 95% CI for regression coefficients
+# function to obtain regression weights
+bs <- function(formula, data, indices) {
+  d <- data[indices,] # allows boot to select sample
+  fit <- lm(formula, data=d)
+  return(coef(fit))
+}
+# bootstrapping with 1000 replications
+results <- boot(data=locdf, statistic=bs,
+    R=1000, formula=voxasl~.)
+```
+
+## Bootstrap the GM voxel regression
+
+```{r gmboot2, eval=TRUE}
+results
+plot(results, index=1) # intercept
+plot(results, index=2) # tag control
+# get 95% confidence intervals
+boot.ci(results, type="bca", index=2) # tag control
+```
+How might we resolve this fairly substantial uncertainty in parameter estimates?
+
+(bayesian model averaging?)
+
+## Let's look at the WM voxel regression
+
+```{r intvox3, eval=TRUE}
+locdf<-data.frame(voxasl=aslmat[,voxlist[3]],
+                  tc=as.factor(perfpro$xideal),
+                  nuis=perfpro$nuisancevariables)
+wmdl<-lm(voxasl~.,data=locdf)
+print(summary(wmdl))
+visreg(wmdl,'tc')
+```
+
+## Let's look at the CSF voxel regression
+
+```{r intvox1, eval=TRUE}
+locdf<-data.frame(voxasl=aslmat[,voxlist[1]],
+                  tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
+print(summary(lm(voxasl~.,data=locdf)))
+```
+
+## Let's look at a GM/WM voxel
+
+```{r intvox4, eval=TRUE}
+locdf<-data.frame(voxasl=aslmat[,voxlist[4]],
+                  tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
+print(summary(lm(voxasl~.,data=locdf)))
+```
+
+## Let's look at the artifact voxel
+
+```{r intvox5, eval=TRUE}
+locdf<-data.frame(voxasl=aslmat[,voxlist[5]],
+                  tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
+print(summary(lm(voxasl~.,data=locdf)))
+```
+
+## Get some statistics on which to base priors
+
+* Just run
+
+* $$ \text{X}_\text{asl} \approx \text{tc} + \text{nuis} $$
+
+* and then get the median of $\beta_\text{tc}$ for each tissue.  
+
+* This will be our simple-minded prior on the value of $\beta_\text{tc}$
+at each voxel (within the context of its tissue probability).
+
+```{r baser, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+perfdf<-data.frame( xideal=perfpro$xideal,
+            nuis=perfpro$nuisancevariables)
+perfdf<-perfdf[,!is.na(colMeans(perfdf))]
+if (  id == "boohoo" ) {
+  perfpro$regweights[1:6]<-0
+  pp<-length(perfpro$regweights)-6+1
+  perfpro$regweights[pp:length(perfpro$regweights)]<-0
+}
+perfmodel<-lm( aslmat ~.,data=perfdf, weights=perfpro$regweights )
+blm<-bigLMStats( perfmodel, includeIntercept=T )
+```
+
+
+## Estimate tissue-specific priors from global map
+
+```{r estimer, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+getpriors<-function( img, seg )
+  {
+  n<-max(seg)
+  p<-rep(0,n)
+#  Use the median to be conservative.
+  segvec<-( seg[ seg > 0 ] )
+  # note: this is a critical choice
+  for ( i in 1:n ) p[i]<-median( img[ segvec == as.numeric(i) ] )
+  return(p)
+  }
+bayespriormatfull<-blm$beta
+n<-max(seg)*nrow(bayespriormatfull)
+bayespriormat<-matrix( rep(0,n), nrow=max(seg) )
+for( i in 1:ncol(bayespriormat) )
+  bayespriormat[,i]<-getpriors( bayespriormatfull[i,] , seg )
+# set 4 to equal 2 - dgm = gm
+bayespriormat[4,]<-bayespriormat[2,]
+# set csf to zero perfusion
+bayespriormat[1,2]<-0
+```
+
+## The prior values for perfusion - per class
+
+```{r printpriors, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+print(bayespriormat[,1])
+print(bayespriormat[,2])
+print(bayespriormat[,3])
+```
+
+## Extract priors to guide reestimate of perfusion map
+```{r extr, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+X<-model.matrix( perfmodel )
+localtissuemat<-imageListToMatrix(tissuelist,mask)
+priorwt<-diag(ncol(bayespriormat))*myPriorStrength
+# zero out prior weight on nuisance variables ...
+priorwt[3:ncol(priorwt),3:ncol(priorwt)]<-0
+```
+
+## Revisit the GM regression with/Bayesian linear modeling
+
+```{r intvox2bayes, eval=TRUE}
+segval<-2
+y=aslmat[,voxlist[segval]]
+locdf<-data.frame(voxasl=y,
+  tc=as.factor(perfpro$xideal),
+  nuis=perfpro$nuisancevariables)
+bgmdl<-lm(voxasl~.,data=locdf)
+tissueprior<-localtissuemat[segval,i]
+localprior<-bayespriormat[segval,]
+bsol<-bayesianlm( model.matrix(bgmdl), y,
+                  localprior, priorwt )
+```
+
+## Bootstrap the GM voxel Bayesian regression
+
+```{r gmbootbayes, eval=TRUE}
+bs <- function(formula, data, indices) {
+    d <- data[indices,] # allows boot to select sample
+    fit <- lm(formula, data=d)
+    bsol<-bayesianlm( model.matrix(fit), y,
+                  localprior, priorwt )
+    return(bsol$beta)
+  }
+resultsbayes <- boot(data=locdf, statistic=bs,
+    R=1000, formula=voxasl~.)
+```
+
+## GM Bayesian regression distribution
+
+```{r gmboot2bayes, eval=TRUE}
+# resultsbayes
+plot(resultsbayes, index=1) # tag control
+```
+
+## GM basic regression distribution
+
+```{r gmboot2again, eval=TRUE}
+# results
+plot(results, index=2) # tag control
+```
+
+## Let's discuss a bit ...
+
+* We can do the same for each tissue ... and do a weighted average
+
+* Yields the *expected perfusion* given our model (and its priors)
+
+* What have we learned?
+
+* ... something *weakly informative*?  
+
+## Bayesian regression across all tissue models
+
+Our Bayesian model for each tissue is based on estimating
+$\Pr( \text{perfusion}_i | \mathbf{y} )$ where $\mathbf{y}$ is the ASL signal.
+Recall the standard approach for estimating perfusion via linear
+regression (forgive brevity):
+$$
+\mathbf{y} \approx \mathbf{x}^T \mathbf{\beta} + \epsilon,
+$$
+where $\mathbf{x}$ contains the tag-control designation along
+with other nuisance variables (motion, noise model).
+
+## Bayesian regression across all tissue models
+
+The prior distribution, for each tissue, is
+on the parameters of the standard perfusion regression equation which
+we denote as a pair $(\mathbf{\beta}_i,\mathbf{\sigma}^2_i)$ (i.e. mean
+and covariance of the parameters).  The posterior distribution of this
+prior model is proportional to:
+$$
+\Pr(\mathbf{y}|\mathbf{x},\mathbf{\beta}_i,\mathbf{\sigma}_i^2)
+  \Pr(\mathbf{\beta}_i|\mathbf{\sigma}_i^2)\Pr(\mathbf{\sigma}_i^2)
+$$
+where we will simplify some terms above in the implementation.
+
+## Bayesian regression across all tissue models
+
+We then compute *expected perfusion* by integrating over models for all tissues:
+$\sum_i \hat{\beta}_i^p \Pr(\text{tissue}_i)$ where
+$\hat{\beta}_i^p$ represents the argmax solution for the
+perfusion given a specific tissue model.  Code follows.
+
+## Bayesian regression across all tissue models: Code
+
+```{r bayeservox, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+  for( segval in 1:2 ) {
+    localprior<-bayespriormat[segval,]
+    blm<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt )
+    blm2<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt*0 )
+    blm3<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt2 )
+    priorwt3<-priorwt2*0 ; diag(priorwt3)<-diag(priorwt2)
+    blm4<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt3 )
+    print(paste(voxnm[segval],blm$beta[1],blm2$beta[1],blm3$beta[1],blm4$beta[1]))
+  }
+# priorwt<-priorwt2 # consider this ...
+```
+
+## Bayesian regression across all tissue models
+
+Now on the full image.
+```{r bayeser, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+bayesianperfusionloc<-localtissuemat*0
+bayesianperfusionlocp<-localtissuemat*0
+pb <- txtProgressBar(min = 1, max = ncol(aslmat), style = 3)
+for ( i in 1:ncol(aslmat) )
+  {
+  if (progbar)  setTxtProgressBar(pb, i)
+  # here is where we get really bayesian
+  # average over all tissue models ...
+  localtissuemat[,i]<-abs(localtissuemat[,i])/
+    sum(abs(localtissuemat[,i]))
+  for ( segval in 1:max(seg) )
+    {
+    tissueprior<-localtissuemat[segval,i]
+    localprior<-bayespriormat[segval,]
+    blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt,
+                      regweights=perfpro$regweights )
+    locbeta<-blm$beta[1]
+    bayesianperfusionloc[segval,i]<-locbeta
+    bayesianperfusionlocp[segval,i]<-locbeta*tissueprior
+    }
+  }
+close(pb)
+```
+This value represents the expected perfusion given the tissue
+content at each voxel.
+
+## Standard vs next-step vs bayesian regularized next-step perfusion map
+
+```{r bperf, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+bperf<-antsImageClone(mask)
+pervec<-colMeans(aslmat[ perfpro$xideal > 0 , ] - aslmat[ perfpro$xideal < 0 , ])
+bperf[mask==1]<-pervec
+plotANTsImage(bperf,slices=myslices,axis=3,outname=cperfnm)
+plotANTsImage(perfimg,slices=myslices,axis=3,outname=perfnm)
+bperfimg<-makeImage(mask,colSums(bayesianperfusionlocp))
+plotANTsImage(bperfimg,slices=myslices,axis=3,outname=bperfnm)
+```
+
+
+
+```{r stanvb, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+plotANTsImage(perfimg,slices=myslices,axis=3,outname=perfnm)
+bperfimg<-makeImage(mask,colSums(bayesianperfusionlocp))
+plotANTsImage(bperfimg,slices=myslices,axis=3,outname=bperfnm)
+```
+![Axial slices](`r cperfnm`)
+![Axial slices](`r perfnm`)
+![Axial slices](`r bperfnm`)
+
+## Plot the correlation between bayesian and basic perfusion
+
+```{r plotter, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+plot(  bperf[mask==1],  bperfimg[mask==1],
+  main=paste(cor(bperf[mask==1],  bperfimg[mask==1])) )
+```
+
+## Plot the correlation between local bayesian and basic perfusion
+
+```{r plotter2, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+plot(  bperf[mask==1],  bcbfl$bcbf[mask==1],
+  main=paste(cor(bperf[mask==1],  bcbfl$bcbf[mask==1])) )
+```
+
+
+## M0 image
+```{r m0, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+plotANTsImage(perfpro$m0,slices=myslices,axis=3,outname=m0nm)
+```
+![Axial slices](`r m0nm`)
+
+## Quantify CBF
+See `aslPerfusion`.
+```{r qcbf, echo=TRUE,warning=F,message=F,cache=FALSE, eval=TRUE}
+ # SmoothImage(3,perfpro$m0,3.0,perfpro$m0)
+ pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
+ cbf <- quantifyCBF(  bperf, mask,pcasl.parameters )
+ bcbf<- quantifyCBF( bperfimg, mask,pcasl.parameters )
+```
+
+## Basic and bayesian cbf maps
+
+```{r bbb, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+cbf$kmeancbf[ cbf$kmeancbf < 0 ]<-0
+plotANTsImage(cbf$kmeancbf,slices=myslices,axis=3,outname=cbfnm)
+cbf<-cbf$meancbf
+bcbf$kmeancbf[ bcbf$kmeancbf < 0 ]<-0
+plotANTsImage(bcbf$kmeancbf,slices=myslices,axis=3,outname=bcbfnm)
+plotANTsImage(bcbfl$bcbf,slices=myslices,axis=3,outname=bcbfnml)
+bcbf<-bcbf$meancbf
+```
+![Axial slices](`r cbfnm`)
+![Axial slices](`r bcbfnm`)
+![Axial slices](`r bcbfnml`)
+
+
+## Statistics: Global Basic CBF
+```{r gcb, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+print(paste("Mean",mean(cbf),"sd",sd(cbf),"min",min(cbf),"max",max(cbf)))
+for ( i in as.numeric(1:6) ) {
+  print(paste("Tissue",i,"Mean",mean(cbf[seg==i]), "sd",sd(cbf[seg==i]),
+    "min",min(cbf[seg==i]),"max",max(cbf[seg==i])))
+  hist(cbf[seg==i])
+  }
+```
+
+## Statistics: Global Bayesian CBF
+```{r bcb, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
+print(paste("Mean",mean(bcbf),"sd",sd(bcbf),"min",min(bcbf),"max",max(bcbf)))
+for ( i in as.numeric(1:6) ) {
+  print(paste("Tissue",i,"Mean",mean(bcbf[seg==i]), "sd",sd(bcbf[seg==i]),
+    "min",min(bcbf[seg==i]),"max",max(bcbf[seg==i])))
+  hist(bcbf[seg==i])
+  }
+```
+
+
+## Population level results
+
+```{r pnc, echo=F,warning=F,message=F,cache=FALSE, eval=FALSE}
+library(ANTsR)
+library(e1071)
+library(randomForest)
+library(effects)
+library(psych)
+library(BMS)
+library(pheatmap)
+setwd("/Users/stnava/data/PNC/cbfstudies/")
+demog<-read.csv("../PNC_demog.csv")
+ids<-demog$bblid
+# sample data
+cbfex<-read.csv("bcbf/106246/20110917/bcbf/106246_20110917_roicbf.csv")
+nc<-ncol(cbfex)
+nr<-nrow(demog)
+nent<-nr*nc
+cbfdemog<-data.frame( matrix( rep(NA,nent), ncol=nc ) )
+colnames(cbfdemog)<-colnames(cbfex)
+ct<-1
+for ( rawcbf in c(T,F) ) {
+for ( usebayes in c(T,F) )
+{
+for ( x in ids )
+  {
+  srch<-paste("bcbf_prior_00/",x,
+    "/*/bcbf/*roicbf.csv",sep='')
+  ffn<-Sys.glob(srch)
+  srch2<-paste("bcbf/",x,"/*/bcbf/*roicbf.csv",sep='')
+  ffn2<-Sys.glob(srch2)
+  if (length(ffn)==1 & length(ffn2)==1)
+    {
+    if (!usebayes ) cbfdemog[ct,]<-read.csv(ffn)[1,]
+    if ( usebayes ) cbfdemog[ct,]<-read.csv(ffn2)[1,]
+    }
+  ct<-ct+1
+  }
+bdemog<-cbind(demog,cbfdemog)
+rmns<-rowMeans(cbfdemog,na.rm=T)
+rcbf<-cbfdemog/rmns
+mnvs<-apply(rcbf,FUN=min,MARGIN=1,na.rm=T)
+selsubs<-rep(TRUE,nr)
+selsubs[is.na(rmns)]<-F
+# selsubs[is.na(rmns)|mnvs<0]<-F
+# selsubs[is.na(rmns)|rmns<20|rmns>70|mnvs<0]<-F
+  fcbfdemog<-cbfdemog[, colMeans(cbfdemog,na.rm=T) > 10 ]
+subcbf<-residuals( lm(
+  data.matrix(fcbfdemog[selsubs,]) ~ 1 ))
+subcbf<-fcbfdemog[selsubs,]/rowMeans(fcbfdemog[selsubs,],na.rm=T)
+if( rawcbf ) subcbf<-fcbfdemog[selsubs,]
+predval<-antsrimpute(bdemog[selsubs,]$age)
+predvalc<-antsrimpute(bdemog[selsubs,]$F2B_dprime)
+predvalc<-antsrimpute(bdemog[selsubs,]$exe_iiv_S_z)
+predvalc<-antsrimpute(bdemog[selsubs,]$Accuracy_Memory)
+predvalc<-antsrimpute(bdemog[selsubs,]$lan_a_z)
+predvalc<-antsrimpute(bdemog[selsubs,]$fmem_a_z)
+pdemog<-data.frame( age=predval, cog=predvalc,
+#  gen=bdemog[selsubs,]$male,
+#  edu=antsrimpute(demog$mom_edu_years[selsubs]),
+  subcbf )
+set.seed(11)
+selector<-rnorm(nrow(pdemog))
+trainer<-selector<0.5
+mydf1<-pdemog[trainer,]
+mydf2<-pdemog[!trainer,]
+mdl<-svm(cog~.,data=mydf1)
+predOut<-predict(mdl,newdata=mydf2)
+plot(predOut,mydf2$cog)
+print(cor.test(predOut,mydf2$cog))
+print(mean(abs(predOut-mydf2$cog)))
+}
+}
+```
+
+## We are working to integrate all of this in a *well-designed* pipeline
+
+* usually takes 3 tries
+
+* we are on try 2.5
+
+* Ben has a few comments on this ...
+
+## Conclusions and questions ....
+
+* We highlighted the general ideas of Bayesian inference as they may
+be applied within our context
+
+* We detailed one example and the benefits that it supplies
+
+* We are open to other ideas about how to use priors - the code is flexible
+
+* Let's talk about architecture ...
