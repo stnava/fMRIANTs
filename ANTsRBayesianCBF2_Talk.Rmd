@@ -819,7 +819,7 @@ for ( i in as.numeric(1:6) ) {
 
 ## Population level results
 
-```{r pnc, echo=F,warning=F,message=F,cache=FALSE, eval=FALSE}
+```{r pnc, echo=F,warning=F,message=F,cache=FALSE, eval=TRUE}
 library(ANTsR)
 library(e1071)
 library(randomForest)
@@ -827,6 +827,9 @@ library(effects)
 library(psych)
 library(BMS)
 library(pheatmap)
+for ( rawcbf in c(F,T) ) {
+for ( usebayes in c(T,F) )
+{
 setwd("/Users/stnava/data/PNC/cbfstudies/")
 demog<-read.csv("../PNC_demog.csv")
 ids<-demog$bblid
@@ -838,9 +841,6 @@ nent<-nr*nc
 cbfdemog<-data.frame( matrix( rep(NA,nent), ncol=nc ) )
 colnames(cbfdemog)<-colnames(cbfex)
 ct<-1
-for ( rawcbf in c(T,F) ) {
-for ( usebayes in c(T,F) )
-{
 for ( x in ids )
   {
   srch<-paste("bcbf_prior_00/",x,
