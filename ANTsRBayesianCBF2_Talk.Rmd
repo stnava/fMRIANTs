@@ -646,6 +646,33 @@ plot(resultsbayes, index=1) # tag control
 plot(results, index=2) # tag control
 ```
 
+## Plot BLM results v/prior variation
+
+```{r intvoxpriorvar, echo=FALSE, eval=TRUE}
+for ( segval in 1:5 )
+{
+y=aslmat[,voxlist[segval]]
+locdf<-data.frame(voxasl=y,
+  tc=as.factor(perfpro$xideal),
+  nuis=perfpro$nuisancevariables)
+bgmdl<-lm(voxasl~.,data=locdf)
+tissueprior<-localtissuemat[segval,i]
+localprior<-bayespriormat[segval,]
+bsolsacrosspriors<-c(0:100)/50
+varpriors<-c(0:100)/50
+for ( i in 1:length(varpriors) ) {
+  vp<-varpriors[i]
+  bsolsacrosspriors[i]<-bayesianlm( model.matrix(bgmdl), y,
+    localprior, priorwt*vp )$beta[1]
+  }
+baydf<-data.frame( priorWt=varpriors, perf=bsolsacrosspriors )
+baydf %>% ggvis(x = ~priorWt, y = ~perf) %>% layer_paths()
+# add_axis("x", title = "PriorWt")
+# add_axis("y", title = paste("Perf",voxnm[segval]) )
+}
+```
+
+
 ## Let's discuss a bit ...
 
 * We can do the same for each tissue ... and do a weighted average
@@ -695,12 +722,8 @@ perfusion given a specific tissue model.  Code follows.
     localprior<-bayespriormat[segval,]
     blm<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt )
     blm2<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt*0 )
-    blm3<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt2 )
-    priorwt3<-priorwt2*0 ; diag(priorwt3)<-diag(priorwt2)
-    blm4<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt3 )
-    print(paste(voxnm[segval],blm$beta[1],blm2$beta[1],blm3$beta[1],blm4$beta[1]))
+  print(paste(voxnm[segval],blm$beta[1],blm2$beta[1]))
   }
-# priorwt<-priorwt2 # consider this ...
 ```
 
 ## Bayesian regression across all tissue models
@@ -885,7 +908,9 @@ for ( rawcbf in c(F,T) ) {
       mydf2<-pdemog[!trainer,]
       mdl<-svm(age~.,data=mydf1)
       predOut<-predict(mdl,newdata=mydf2)
-      plot(predOut,mydf2$age)
+      preddf<-data.frame( realAge=mydf2$age, predAge=predOut, gen=mydf2$gen )
+      preddf %>% ggvis(x = ~predAge, y = ~realAge, size := 100, opacity := 0.4,
+        shape = ~factor(gen)) %>% layer_points()
       print(paste("usebayes",usebayes,"useraw",rawcbf))
       print(cor.test(predOut,mydf2$age))
       print(mean(abs(predOut-mydf2$age)))
@@ -952,7 +977,7 @@ predvalc<-antsrimpute(bdemog[selsubs,]$Accuracy_Memory)
 predvalc<-antsrimpute(bdemog[selsubs,]$lan_a_z)
 predvalc<-antsrimpute(bdemog[selsubs,]$fmem_a_z)
 pdemog<-data.frame( age=predval, cog=predvalc,
-#  gen=bdemog[selsubs,]$male,
+  gen=bdemog[selsubs,]$male,
 #  edu=antsrimpute(demog$mom_edu_years[selsubs]),
   subcbf )
 set.seed(11)
@@ -962,7 +987,9 @@ mydf1<-pdemog[trainer,]
 mydf2<-pdemog[!trainer,]
 mdl<-svm(cog~.,data=mydf1)
 predOut<-predict(mdl,newdata=mydf2)
-plot(predOut,mydf2$cog)
+preddf<-data.frame( realFMem=mydf2$cog, predFMem=predOut, gen=mydf2$gen )
+preddf %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100, opacity := 0.4,
+  shape = ~factor(gen)) %>% layer_points()
 print(paste("usebayes",usebayes,"useraw",rawcbf))
 print(cor.test(predOut,mydf2$cog))
 print(mean(abs(predOut-mydf2$cog)))
