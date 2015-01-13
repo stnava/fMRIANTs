@@ -58,7 +58,7 @@ $$
 
 Laplace's restatement: _the probability of a cause (given an event) is proportional to the probability of the event (given its cause)_
 
-- aside: Napoleon asked why Laplace had failed to mention God in his book on astronomy. Laplace replied: "Sire, I have no need of that hypothesis."
+- aside: [Napoleon asked](http://lesswrong.com/lw/774/a_history_of_bayes_theorem/) why Laplace had failed to mention God in his book on astronomy. Laplace replied: "Sire, I have no need of that hypothesis."
 
 ## How would Reverend Thomas Bayes respond to Dirty Harry?
 
