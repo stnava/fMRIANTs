@@ -56,7 +56,7 @@ $$
 \Pr( \text{ Fired 5 shots}~| \text{ head blown clean off by .44 Magnum}~)
 $$
 
-Laplace's restatement: _the probability of a cause (given an event) is proportional to the probability of the event (given its cause)_
+- Laplace's restatement: _the probability of a cause (given an event) is proportional to the probability of the event (given its cause)_
 
 - aside: [Napoleon asked](http://lesswrong.com/lw/774/a_history_of_bayes_theorem/) why Laplace had failed to mention God in his book on astronomy. Laplace replied: "Sire, I have no need of that hypothesis."
 
@@ -221,7 +221,9 @@ solutions to Bayesian regularization of perfusion estimates.
 
 $$ X_\text{asl}(x) \approx~\text{tc~} + \text{ noise parameters }(x) + \epsilon $$
 
-constrained by: tissue$(x)$, $\beta(x)$, neighborhood$(x)$, covariance$(x)$ and reliability$(t)(x)$
+* constrained by: tissue$(x)$, $\beta(x)$, neighborhood$(x)$, covariance$(x)$ and reliability$(t)(x)$
+
+* ... show spatial example?
 
 ## The specific instance
 
@@ -243,6 +245,7 @@ local tissue models
 informed statistical models
 - Assists reproducible science, communication of results, etc
 - Non-trivial arbitrary dimensionality resource unavailable via other software
+- Developing 2 day workshop for May @ MNI ...
 </div>
 
 ## Preprocessing assumed to be done for each subject before this talk
@@ -268,6 +271,8 @@ library(ANTsR)
 library(RKRNS)
 library(BMS)
 library(ggvis) # intended to replace ggplot2
+library(dplyr)
+library(knitr)
 myPriorStrength<-50.0 # controls prior influence
 basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
 setwd(basedir)
@@ -421,7 +426,7 @@ for ( i in 1:max(intvox)) {
 colnames(voxmat)<-voxnm
 voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
 voxmat %>% ggvis(x = ~tc, y = ~gm, size := 200, opacity := 0.4,
-  shape = ~factor(tc)) %>% layer_points()
+  shape = ~factor(tc)) %>% layer_points(fill = ~factor(tc))
 ```
 
 
@@ -431,7 +436,7 @@ voxmat %>% ggvis(x = ~tc, y = ~gm, size := 200, opacity := 0.4,
 colnames(voxmat)<-voxnm
 voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
 voxmat %>% ggvis(x = ~tc, y = ~wm, size := 200, opacity := 0.4,
-  shape = ~factor(tc)) %>% layer_points()
+  shape = ~factor(tc)) %>% layer_points(fill = ~factor(tc))
 ```
 
 ## Visualize T/C at a CSF voxel
@@ -440,7 +445,7 @@ voxmat %>% ggvis(x = ~tc, y = ~wm, size := 200, opacity := 0.4,
   colnames(voxmat)<-voxnm
   voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
   voxmat %>% ggvis(x = ~tc, y = ~csf, size := 200, opacity := 0.4,
-    shape = ~factor(tc)) %>% layer_points()
+    shape = ~factor(tc)) %>% layer_points(fill = ~factor(tc))
 ```
 
 ## Visualize T/C at an artifact voxel
@@ -449,7 +454,7 @@ voxmat %>% ggvis(x = ~tc, y = ~wm, size := 200, opacity := 0.4,
 colnames(voxmat)<-voxnm
 voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
 voxmat %>% ggvis(x = ~tc, y = ~artifact, size := 200, opacity := 0.4,
-shape = ~factor(tc)) %>% layer_points()
+shape = ~factor(tc)) %>% layer_points(fill = ~factor(tc))
 ```
 
 
@@ -459,7 +464,7 @@ shape = ~factor(tc)) %>% layer_points()
 colnames(voxmat)<-voxnm
 voxmat<-data.frame(voxmat,tc=as.factor(perfpro$xideal))
 voxmat %>% ggvis(x = ~tc, y = ~gm, size := 200, opacity := 0.4,
-  shape = ~factor(tc)) %>% layer_points()
+  shape = ~factor(tc)) %>% layer_points(fill = ~factor(tc))
 ```
 
 
@@ -648,9 +653,8 @@ plot(results, index=2) # tag control
 
 ## Plot BLM results v/prior variation
 
-```{r intvoxpriorvar, echo=FALSE, eval=TRUE}
-for ( segval in 1:5 )
-{
+```{r intvoxpriorvar2, echo=FALSE, eval=TRUE}
+segval<-2
 y=aslmat[,voxlist[segval]]
 locdf<-data.frame(voxasl=y,
   tc=as.factor(perfpro$xideal),
@@ -669,7 +673,29 @@ baydf<-data.frame( priorWt=varpriors, perf=bsolsacrosspriors )
 baydf %>% ggvis(x = ~priorWt, y = ~perf) %>% layer_paths()
 # add_axis("x", title = "PriorWt")
 # add_axis("y", title = paste("Perf",voxnm[segval]) )
-}
+```
+
+
+```{r intvoxpriorvar3, echo=FALSE, eval=TRUE}
+segval<-3
+y=aslmat[,voxlist[segval]]
+locdf<-data.frame(voxasl=y,
+  tc=as.factor(perfpro$xideal),
+  nuis=perfpro$nuisancevariables)
+  bgmdl<-lm(voxasl~.,data=locdf)
+  tissueprior<-localtissuemat[segval,i]
+  localprior<-bayespriormat[segval,]
+  bsolsacrosspriors<-c(0:100)/50
+  varpriors<-c(0:100)/50
+  for ( i in 1:length(varpriors) ) {
+    vp<-varpriors[i]
+    bsolsacrosspriors[i]<-bayesianlm( model.matrix(bgmdl), y,
+    localprior, priorwt*vp )$beta[1]
+  }
+  baydf<-data.frame( priorWt=varpriors, perf=bsolsacrosspriors )
+  baydf %>% ggvis(x = ~priorWt, y = ~perf) %>% layer_paths()
+  # add_axis("x", title = "PriorWt")
+  # add_axis("y", title = paste("Perf",voxnm[segval]) )
 ```
 
 
@@ -855,6 +881,11 @@ library(effects)
 library(psych)
 library(BMS)
 library(pheatmap)
+library(ggvis)
+library(dplyr)
+predList<-list()
+predListName<-list()
+predct<-1
 for ( rawcbf in c(F,T) ) {
   for ( usebayes in c(T,F) )
   {
@@ -909,13 +940,37 @@ for ( rawcbf in c(F,T) ) {
       mdl<-svm(age~.,data=mydf1)
       predOut<-predict(mdl,newdata=mydf2)
       preddf<-data.frame( realAge=mydf2$age, predAge=predOut, gen=mydf2$gen )
-      preddf %>% ggvis(x = ~predAge, y = ~realAge, size := 100, opacity := 0.4,
-        shape = ~factor(gen)) %>% layer_points()
+      predList[[predct]]<-preddf
+      predListName[[predct]]<-paste("usebayes",usebayes,"useraw",rawcbf)  
+      predct<-predct+1
       print(paste("usebayes",usebayes,"useraw",rawcbf))
       print(cor.test(predOut,mydf2$age))
       print(mean(abs(predOut-mydf2$age)))
       }
     }
+##
+##
+print(predListName[[1]])
+predList[[1]] %>% ggvis(x = ~predAge, y = ~realAge, size := 100,  opacity := 0.4,  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[2]])
+predList[[2]] %>% ggvis(x = ~predAge, y = ~realAge, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[3]])
+predList[[3]] %>% ggvis(x = ~predAge, y = ~realAge, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[4]])
+predList[[4]] %>% ggvis(x = ~predAge, y = ~realAge, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
 ```
 
 
@@ -929,6 +984,9 @@ library(effects)
 library(psych)
 library(BMS)
 library(pheatmap)
+predList<-list()
+predListName<-list()
+predct<-1
 for ( rawcbf in c(F,T) ) {
 for ( usebayes in c(T,F) )
 {
@@ -978,7 +1036,6 @@ predvalc<-antsrimpute(bdemog[selsubs,]$lan_a_z)
 predvalc<-antsrimpute(bdemog[selsubs,]$fmem_a_z)
 pdemog<-data.frame( age=predval, cog=predvalc,
   gen=bdemog[selsubs,]$male,
-#  edu=antsrimpute(demog$mom_edu_years[selsubs]),
   subcbf )
 set.seed(11)
 selector<-rnorm(nrow(pdemog))
@@ -988,13 +1045,38 @@ mydf2<-pdemog[!trainer,]
 mdl<-svm(cog~.,data=mydf1)
 predOut<-predict(mdl,newdata=mydf2)
 preddf<-data.frame( realFMem=mydf2$cog, predFMem=predOut, gen=mydf2$gen )
-preddf %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100, opacity := 0.4,
-  shape = ~factor(gen)) %>% layer_points()
+predList[[predct]]<-preddf
+predListName[[predct]]<-paste("usebayes",usebayes,"useraw",rawcbf)
+predct<-predct+1
 print(paste("usebayes",usebayes,"useraw",rawcbf))
 print(cor.test(predOut,mydf2$cog))
 print(mean(abs(predOut-mydf2$cog)))
 }
 }
+##
+print(predListName[[1]])
+predList[[1]] %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[2]])
+predList[[2]] %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[3]])
+predList[[3]] %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
+##
+print(predListName[[4]])
+predList[[4]] %>% ggvis(x = ~predFMem, y = ~realFMem, size := 100,
+  opacity := 0.4,
+  shape = ~factor(gen)) %>% group_by(gen) %>% layer_model_predictions(model = "lm")
+
 ```
 
 ## We are working to integrate all of this in a *well-designed* pipeline
@@ -1013,5 +1095,7 @@ be applied within our context
 * We detailed one example and the benefits that it supplies
 
 * We are open to other ideas about how to use priors - the code is flexible
+
+* E.g. we have explored spatial regularization w/Bayesian priors ...
 
 * Let's talk about architecture ...
