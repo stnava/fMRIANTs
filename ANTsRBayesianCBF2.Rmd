@@ -25,14 +25,14 @@ library(visreg)
 library(ANTsR)
 library(RKRNS)
 library(BMS)
-myPriorStrength<-30.0 # controls prior influence
+myPriorStrength<-50.0 # controls prior influence
 basedir<-"/Users/stnava/data/fMRIANTs/" # FIXME for your study
 setwd(basedir)
 useDataDrivenMask<-3
 denoisingComponents<-1:8
 compcorComponents<-0
 motionAcc<-1 # motion accuracy - 0 is for testing, 1 or 2 real studies
-id<-""; baseSlice<-4 # param for subject 1 
+id<-""; baseSlice<-4 # param for subject 1
 id=2;   baseSlice<-8 # param for subject 2
 robustnessvalue<-0.95 # higher rejects more data. 0.9 or less - keep all
 seg<-antsImageRead(paste("data3/seg2pcasl",id,".nii.gz",sep=''),3)
@@ -42,7 +42,7 @@ for ( i in c(1:max(seg)) )
 ipttrn<-glob2rx(paste("*PCASL",id,".nii.gz",sep=''))
 fns<- paste(basedir,list.files(path=basedir,
   pattern = ipttrn ,recursive=T),sep='/')
-if ( all(dim(tissuelist[[1]])==1) 
+if ( all(dim(tissuelist[[1]])==1)
      | all(dim(seg)==1) |  !file.exists(fns[1]) )
   stop(paste("Check your working directory",basedir))
 progbar<-FALSE
@@ -50,7 +50,7 @@ hook_plot = knit_hooks$get('plot')
 knit_hooks$set(plot = function(x, options) paste('\n', hook_plot(x, options), sep = ''))
 ```
 
-## Read the image 
+## Read the image
 
 ```{r reader, echo=TRUE,cache=FALSE}
 fn<-fns[1]
@@ -61,14 +61,34 @@ if ( ! file.exists(fn) )
 pcasl<-antsImageRead(fn,4)
 ```
 
+## "Lesion" the asl if the lesion data exists
+
+```{r lesion, echo=TRUE,cache=FALSE}
+lesfn<-paste("data3/seg2pcasl",id,"lesion.nii.gz",sep='')
+if ( file.exists(lesfn) )
+  {
+  lesionimg<-antsImageRead(lesfn,3)
+  lesionimg[ seg > 0 ]<-lesionimg[ seg > 0 ]+1
+  mask<-antsImageClone(seg)
+  mask[ seg > 0]<-1
+  mat<-timeseries2matrix( pcasl, mask )
+  lesvec<-lesionimg[ mask >  0]
+  lesmat<-mat
+  inds<-(1:(nrow(mat)/2))*2
+  lesmat[ inds, lesvec == 2 ]<-lesmat[ inds, lesvec == 2 ]*0.99
+  pcasl<-matrix2timeseries(pcasl,mask,lesmat)
+  }
+```
+
 # A non-expository wrapper function for this project
 
-```{r bcbfun, echo=F,warning=F,message=F,cache=FALSE,eval=FALSE}
-bcbf<-bayesianCBF( pcasl, seg, tissuelist,
-  myPriorStrength=30.0,
+```{r bcbfun, echo=F,warning=F,message=F,cache=FALSE,eval=T}
+bcbfl<-bayesianCBF( pcasl, seg, tissuelist,
+  myPriorStrength=myPriorStrength, localweights=F,
   useDataDrivenMask=3,
-  denoisingComponents=1:8,
-  robustnessvalue=0.95 ) # higher val up to 1 throws more out
+  denoisingComponents=1:2,
+  robustnessvalue=0 ) # higher val up to 1 throws more out
+antsImageWrite( bcbfl$bcbf , "/tmp/cbf.nii.gz")
 ```
 
 
@@ -85,13 +105,13 @@ figpre<-paste(tempfile())
 ```
 
 
-## Get time series average 
+## Get time series average
 
 ```{r getavg, echo=TRUE,warning=F,message=F,cache=FALSE}
 avg<-getAverageOfTimeSeries(pcasl)
 ```
 
-## Show the image 
+## Show the image
 
 ```{r shower, echo=F,warning=F,message=F,cache=FALSE}
 bsl<-baseSlice
@@ -124,7 +144,7 @@ if ( useDataDrivenMask > 0 )
   {
   mask2<-getMask(avg,mean(avg),Inf,useDataDrivenMask)
   # cleans up mask to agree with data-driven mask2
-  mask[mask2==0]<-0 
+  mask[mask2==0]<-0
   seg[mask2==0]<-0
   }
 aslmat<-timeseries2matrix(pcasl, mask)
@@ -135,7 +155,7 @@ aslmat<-timeseries2matrix(pcasl, mask)
   perfpro <- aslPerfusion( pcasl, interpolation="linear", skip=10,
         dorobust=robustnessvalue, useDenoiser=denoisingComponents,  
         moreaccurate=motionAcc, verbose=1, mask=mask, useBayesian=0,
-        ncompcor=compcorComponents ) 
+        ncompcor=compcorComponents )
   N3BiasFieldCorrection(3,perfpro$m0,perfpro$m0,2)
   pcasl.parameters <- list( sequence="pcasl", m0=perfpro$m0 )
   perfimg<-perfpro$perfusion
@@ -159,8 +179,8 @@ for ( i in 1:max(intvox)) {
 ## Let's look at the GM voxel
 
 ```{r intvox2}
-locdf<-data.frame(voxasl=aslmat[,voxlist[2]], 
-                  tc=as.factor(perfpro$xideal), 
+locdf<-data.frame(voxasl=aslmat[,voxlist[2]],
+                  tc=as.factor(perfpro$xideal),
                   nuis=perfpro$nuisancevariables)
 gmdl<-lm(voxasl~.,data=locdf)
 print(summary(gmdl))
@@ -170,24 +190,24 @@ visreg(gmdl,'tc')
 ## Bootstrap the TC for the GM voxel
 
 ```{r gmboot}
-# Bootstrap 95% CI for regression coefficients 
-# function to obtain regression weights 
+# Bootstrap 95% CI for regression coefficients
+# function to obtain regression weights
 bs <- function(formula, data, indices) {
-  d <- data[indices,] # allows boot to select sample 
+  d <- data[indices,] # allows boot to select sample
   fit <- lm(formula, data=d)
-  return(coef(fit)) 
-} 
-# bootstrapping with 1000 replications 
-results <- boot(data=locdf, statistic=bs, 
+  return(coef(fit))
+}
+# bootstrapping with 1000 replications
+results <- boot(data=locdf, statistic=bs,
     R=1000, formula=voxasl~.)
 
 # view results
 results
-plot(results, index=1) # intercept 
+plot(results, index=1) # intercept
 plot(results, index=2) # tag control
 
-# get 95% confidence intervals 
-boot.ci(results, type="bca", index=2) # tag control 
+# get 95% confidence intervals
+boot.ci(results, type="bca", index=2) # tag control
 ```
 
 How might we resolve this fairly substantial uncertainty in parameter estimates?
@@ -197,7 +217,7 @@ How might we resolve this fairly substantial uncertainty in parameter estimates?
 ## Let's look at the WM voxel
 
 ```{r intvox3}
-locdf<-data.frame(voxasl=aslmat[,voxlist[3]], 
+locdf<-data.frame(voxasl=aslmat[,voxlist[3]],
                   tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
 print(summary(lm(voxasl~.,data=locdf)))
 ```
@@ -205,7 +225,7 @@ print(summary(lm(voxasl~.,data=locdf)))
 ## Let's look at the CSF voxel
 
 ```{r intvox1}
-locdf<-data.frame(voxasl=aslmat[,voxlist[1]], 
+locdf<-data.frame(voxasl=aslmat[,voxlist[1]],
                   tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
 print(summary(lm(voxasl~.,data=locdf)))
 ```
@@ -213,7 +233,7 @@ print(summary(lm(voxasl~.,data=locdf)))
 ## Let's look at a GM/WM voxel
 
 ```{r intvox4}
-locdf<-data.frame(voxasl=aslmat[,voxlist[4]], 
+locdf<-data.frame(voxasl=aslmat[,voxlist[4]],
                   tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
 print(summary(lm(voxasl~.,data=locdf)))
 ```
@@ -221,7 +241,7 @@ print(summary(lm(voxasl~.,data=locdf)))
 ## Let's look at the artifact voxel
 
 ```{r intvox5}
-locdf<-data.frame(voxasl=aslmat[,voxlist[5]], 
+locdf<-data.frame(voxasl=aslmat[,voxlist[5]],
                   tc=perfpro$xideal, nuis=perfpro$nuisancevariables)
 print(summary(lm(voxasl~.,data=locdf)))
 nrm<-6
@@ -235,7 +255,7 @@ print(summary(lm(voxasl~.,data=locdf,subset=ss)))
 ## Get some statistics on which to base priors
 
 ```{r baser, echo=TRUE,warning=F,message=F,cache=FALSE}
-perfdf<-data.frame( xideal=perfpro$xideal, 
+perfdf<-data.frame( xideal=perfpro$xideal,
             nuis=perfpro$nuisancevariables)
 perfdf<-perfdf[,!is.na(colMeans(perfdf))]
 if (  id == "boohoo" ) {
@@ -264,7 +284,7 @@ n<-max(seg)*nrow(bayespriormatfull)
 bayespriormat<-matrix( rep(0,n), nrow=max(seg) )
 for( i in 1:ncol(bayespriormat) )
   bayespriormat[,i]<-getpriors( bayespriormatfull[i,] , seg )
-# set 4 to equal 2 - dgm = gm 
+# set 4 to equal 2 - dgm = gm
 bayespriormat[4,]<-bayespriormat[2,]
 # set csf to zero perfusion
 bayespriormat[1,2]<-0
@@ -289,28 +309,28 @@ priorwt2<-solve(cov(bayespriormat)+
 ```
 
 ## Bayesian regression across all tissue models
-We use a bayesian model for each tissue i.e. 
+We use a bayesian model for each tissue i.e.
 $\Pr( \text{tissue}_i | \mathbf{y} )$ where $\mathbf{y}$ is the ASL signal.
-Recall the standard approach for estimating perfusion via linear 
+Recall the standard approach for estimating perfusion via linear
 regression (forgive brevity):
 $$
 \mathbf{y} \approx \mathbf{x}^T \mathbf{\beta} + \epsilon,
 $$
-where $\mathbf{x}$ contains the tag-control designation along 
+where $\mathbf{x}$ contains the tag-control designation along
 with other nuisance variables (motion, noise model).
 The prior distribution, for each tissue, is
-on the parameters of the standard perfusion regression equation which 
-we denote as a pair $(\mathbf{\beta}_i,\mathbf{\sigma}^2_i)$ (i.e. mean 
-and covariance of the parameters).  The posterior distribution of this 
+on the parameters of the standard perfusion regression equation which
+we denote as a pair $(\mathbf{\beta}_i,\mathbf{\sigma}^2_i)$ (i.e. mean
+and covariance of the parameters).  The posterior distribution of this
 prior model is proportional to:
 $$
 \Pr(\mathbf{y}|\mathbf{x},\mathbf{\beta}_i,\mathbf{\sigma}_i^2)
   \Pr(\mathbf{\beta}_i|\mathbf{\sigma}_i^2)\Pr(\mathbf{\sigma}_i^2)
 $$
 where we will simplify some terms above in the implementation.
-We then compute perfusion by integrating over models for all tissues: 
+We then compute perfusion by integrating over models for all tissues:
 $\sum_i \hat{\beta}_i^p \Pr(\text{tissue}_i)$ where
-$\hat{\beta}_i^p$ represents the argmax solution for the 
+$\hat{\beta}_i^p$ represents the argmax solution for the
 perfusion given a specific tissue model.  Code below:
 
 
@@ -324,7 +344,7 @@ perfusion given a specific tissue model.  Code below:
     blm4<-bayesianlm(  X, aslmat[,voxlist[segval]], localprior, priorwt3 )
     print(paste(voxnm[segval],blm$beta[1],blm2$beta[1],blm3$beta[1],blm4$beta[1]))
   }
-# priorwt<-priorwt2 # consider this ... 
+# priorwt<-priorwt2 # consider this ...
 ```
 
 Now on the full image.
@@ -335,7 +355,7 @@ pb <- txtProgressBar(min = 1, max = ncol(aslmat), style = 3)
 for ( i in 1:ncol(aslmat) )
   {
   if (progbar)  setTxtProgressBar(pb, i)
-  # here is where we get really bayesian 
+  # here is where we get really bayesian
   # average over all tissue models ...
   localtissuemat[,i]<-abs(localtissuemat[,i])/
     sum(abs(localtissuemat[,i]))
@@ -343,7 +363,7 @@ for ( i in 1:ncol(aslmat) )
     {
     tissueprior<-localtissuemat[segval,i]
     localprior<-bayespriormat[segval,]
-    blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt, 
+    blm<-bayesianlm(  X, aslmat[,i], localprior, priorwt,
                       regweights=perfpro$regweights )
     locbeta<-blm$beta[1]
     bayesianperfusionloc[segval,i]<-locbeta
@@ -352,10 +372,10 @@ for ( i in 1:ncol(aslmat) )
   }
 close(pb)
 ```
-This value represents the expected perfusion given the tissue 
+This value represents the expected perfusion given the tissue
 content at each voxel.
 
-## Standard vs next-step vs bayesian regularized next-step perfusion map 
+## Standard vs next-step vs bayesian regularized next-step perfusion map
 
 ```{r bperf, echo=F,warning=F,message=F,cache=FALSE}
 bperf<-antsImageClone(mask)
@@ -386,9 +406,16 @@ plotANTsImage(bperfimg,slices=myslices,axis=3,outname=bperfnm)
 ## Plot the correlation between bayesian and basic perfusion
 
 ```{r plotter, echo=F,warning=F,message=F,cache=FALSE}
-plot(  bperf[mask==1],  bperfimg[mask==1], 
+plot(  bperf[mask==1],  bperfimg[mask==1],
   main=paste(cor(bperf[mask==1],  bperfimg[mask==1])) )
 ```
+## Plot the correlation between local bayesian and basic perfusion
+
+```{r plotter2, echo=F,warning=F,message=F,cache=FALSE}
+plot(  bperf[mask==1],  bcbfl$bcbf[mask==1],
+  main=paste(cor(bperf[mask==1],  bcbfl$bcbf[mask==1])) )
+```
+
 
 ## M0 image
 ```{r m0, echo=F,warning=F,message=F,cache=FALSE}
@@ -416,10 +443,13 @@ cbf<-cbf$meancbf
 bcbf$kmeancbf[ bcbf$kmeancbf < 0 ]<-0
 bcbfnm=paste(figpre,'bcbf.png',sep='')
 plotANTsImage(bcbf$kmeancbf,slices=myslices,axis=3,outname=bcbfnm)
+bcbfnml=paste(figpre,'bcbf.png',sep='')
+plotANTsImage(bcbfl$bcbf,slices=myslices,axis=3,outname=bcbfnml)
 bcbf<-bcbf$meancbf
 ```
 ![Axial slices](`r cbfnm`)
 ![Axial slices](`r bcbfnm`)
+![Axial slices](`r bcbfnml`)
 
 
 ## Statistics: Global Basic CBF
@@ -441,4 +471,3 @@ for ( i in as.numeric(1:6) ) {
   hist(bcbf[seg==i])
   }
 ```
-
