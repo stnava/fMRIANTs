@@ -962,15 +962,15 @@ print(predListAName[[2]])
 ggvis(predListA[[2]], x = ~predAge, y = ~realAge,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>% layer_model_predictions(model = "lm")
 
 print(predListAName[[3]])
-ggvis(predListA[[3]], x = ~predAge, y = ~realAge,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  %>% knit_print()
+ggvis(predListA[[3]], x = ~predAge, y = ~realAge,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  
 
 print(predListAName[[4]])
-ggvis(predListA[[4]], x = ~predAge, y = ~realAge,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  %>% knit_print()
+ggvis(predListA[[4]], x = ~predAge, y = ~realAge,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")
 ```
 
 ## Population level results: Cognition
 
-```{r pnccog, eval=TRUE, warning=F, message=F,cache=FALSE, echo=FALSE}
+```{r pnccog, eval=F, warning=F, message=F,cache=FALSE, echo=FALSE}
 library(ANTsR)
 library(e1071)
 library(randomForest)
@@ -1051,7 +1051,7 @@ print(mean(abs(predOut-mydf2$cog)))
 
 ## Population level results: Cognition
 
-```{r pncog2ab}
+```{r pncog2ab,eval=F}
 print(predListName[[1]])
 ggvis(predList[[1]], x = ~predFMem, y = ~realFMem, opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>% layer_model_predictions(model = "lm")
 
@@ -1059,10 +1059,10 @@ print(predListName[[2]])
 ggvis(predList[[2]], x = ~predFMem, y = ~realFMem,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>% layer_model_predictions(model = "lm")
 
 print(predListName[[3]])
-ggvis(predList[[3]], x = ~predFMem, y = ~realFMem,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  %>% knit_print()
+ggvis(predList[[3]], x = ~predFMem, y = ~realFMem,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  
 
 print(predListName[[4]])
-ggvis(predList[[4]], x = ~predFMem, y = ~realFMem,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")  %>% knit_print()
+ggvis(predList[[4]], x = ~predFMem, y = ~realFMem,  opacity := 0.4) %>% layer_points(fill = ~factor(gen))  %>% group_by(gen) %>%  layer_model_predictions(model = "lm")
 ```
 
 
