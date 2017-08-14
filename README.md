@@ -48,7 +48,7 @@ ImageMath 3 $fxd ReplicateImage ${nm}_avg.nii.gz $hislice $tr 0
 Finally, run SyN to map the time series to this fixed space.
 ```
 tx=SyN[0.1,3,0.0] # critical parameters (though others matter too)
-antsRegistration --dimensionality 4 -f 1 -r ${nm}Warp.nii.gz \
+antsRegistration --dimensionality 4 -r ${nm}Warp.nii.gz \
       --output   [${nm}_,${nm}Warped.nii.gz] \
       --interpolation Linear --use-histogram-matching 1 \
       --winsorize-image-intensities [0.005,0.995] --transform $tx \
