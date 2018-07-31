@@ -257,9 +257,14 @@ plot(hrf)
 ## Do convolution with design matrix
 ```{r, echo=FALSE,eval=TRUE,cache=FALSE}
  hrfdesignmat <- designmat
+ doConv = TRUE
  for (i in 1:ncol(hrfdesignmat)) {
    # FIXME - not sure where the function conv lives?
-#   hrfdesignmat[, i] <- conv(hrfdesignmat[, i], hrf)[1:nrow(hrfdesignmat)]
+   if ( doConv ) {
+     tempx = as.numeric( hrfdesignmat[, i] )
+     tempy = as.numeric( hrf )
+     hrfdesignmat[, i] <- pracma::conv( tempx, tempy )[1:nrow(hrfdesignmat)]
+     }
    }
 plot( ts(hrfdesignmat[, 1]) )
 ```
