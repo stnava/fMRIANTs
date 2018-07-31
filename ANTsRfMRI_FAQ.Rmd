@@ -109,7 +109,7 @@ avg<-getAverageOfTimeSeries(bold)
 
 ```{r, echo=F,warning=F,message=F,cache=FALSE}
 onm1=paste(figpre,'slices.png',sep='')
-plotANTsImage(avg,slices='18x26x4',axis=3,outname=onm1)
+plot(avg,slices='18x26x4',axis=3,outname=onm1)
 ```
 
 ## Show the image 
@@ -120,8 +120,7 @@ plotANTsImage(avg,slices='18x26x4',axis=3,outname=onm1)
 ## Get Mask
 
 ```{r, echo=TRUE,warning=F,message=F,cache=FALSE}
-N3BiasFieldCorrection(3,avg,avg,2)
-N3BiasFieldCorrection(3,avg,avg,2)
+avg = n3BiasFieldCorrection( avg, 2 )
 mask<-getMask(avg,mean(avg),Inf,2)
 mat<-timeseries2matrix(bold, mask)
 ```
@@ -141,7 +140,7 @@ plot(ts(dvars))
   boldarr<-as.array(bold)
   bold2d<-as.antsImage(t(boldarr[20,20,,]))
   onm2da=paste(figpre,'slices2da.png',sep='')
-  plotANTsImage(bold2d,outname=onm2da)
+  plot(bold2d,outname=onm2da)
 ```
 
 ## Show Time Slice Before Motion Correction
@@ -180,7 +179,7 @@ What is being done here?
 - ... other options
 
 ```{r, echo=TRUE,warning=F,message=F,eval=TRUE,cache=FALSE}
-  boldpre<-antsPreprocessfMRI( bold, mask, residualizeMatrix=T,
+  boldpre<-preprocessfMRI( bold, mask, residualizeMatrix=T,
       spatialSmoothingType='gaussian', useMotionCorrectedImage=T,
       motionCorrectionAccuracyLevel = motionAcc,
       spatialSmoothingParameters=0, numberOfCompCorComponents=6 )
@@ -193,7 +192,7 @@ What is being done here?
   boldarr<-as.array(boldpre$cleanBoldImage)
   bold2d<-as.antsImage(t(boldarr[20,20,,]))
   onm2db=paste(figpre,'slices2db.png',sep='')
-  plotANTsImage(bold2d,outname=onm2db)
+  plot(bold2d,outname=onm2db)
 ```
 
 ## Show Time Slice After Motion $+$ Nuisance Residuals
@@ -241,7 +240,7 @@ plot(ts(boldpre$nuisanceVariables[,"compcorr2"]))
 
 ```{r, echo=TRUE,warning=F,message=F,eval=TRUE,cache=FALSE}
   bold<-antsImageClone( boldpre$cleanBoldImage )
-  SmoothImage(4,bold,3.0,bold)
+  bold = smoothImage( bold, 3.0 )
   mat<-timeseries2matrix( bold, mask  )
 ```
 
@@ -259,7 +258,8 @@ plot(hrf)
 ```{r, echo=FALSE,eval=TRUE,cache=FALSE}
  hrfdesignmat <- designmat
  for (i in 1:ncol(hrfdesignmat)) {
-   hrfdesignmat[, i] <- conv(hrfdesignmat[, i], hrf)[1:nrow(hrfdesignmat)]
+   # FIXME - not sure where the function conv lives?
+#   hrfdesignmat[, i] <- conv(hrfdesignmat[, i], hrf)[1:nrow(hrfdesignmat)]
    }
 plot( ts(hrfdesignmat[, 1]) )
 ```
@@ -339,9 +339,9 @@ See [ANTsR examples](http://stnava.github.io/ANTsR/)
 
 ```{r, echo=T,warning=F,message=F,cache=FALSE}
 onm=paste(figpre,'betas.png',sep='')
-th<-paste("3.0x",as.character(max(wbeta)),sep='')
-plotANTsImage(gtemplate,functional=list(wbeta), thresh=th,
-  color='jet',slices='48x62x4',axis=3,outname=onm)
+th<-c(3.0,max(wbeta))
+plot(gtemplate,list(wbeta), window.overlay=th,
+  color.overlay='red',nslices=20,axis=3 )
 ```
 
 ## Show on group template
