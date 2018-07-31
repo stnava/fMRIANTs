@@ -346,7 +346,7 @@ See [ANTsR examples](http://stnava.github.io/ANTsR/)
 onm=paste(figpre,'betas.png',sep='')
 th<-c(3.0,max(wbeta))
 plot(gtemplate,list(wbeta), window.overlay=th,
-  color.overlay='red',nslices=20,axis=3 )
+  color.overlay='red',nslices=20,axis=3 , outname=onm )
 ```
 
 ## Show on group template
