@@ -62,7 +62,7 @@ Finally, we generate a 3D transformation to a template then replicate these maps
 example of how ANTs works, in general, to minimize the number of interpolations
 that one must apply to the data.
 ```
-antsRegistrationSyNQuick.sh -d 3 -f data/template.nii.gz -m ${nm}_avg.nii.gz \
+antsRegistrationSyNQuick.sh -d 3 -f data2/template2mil.nii.gz -m ${nm}_avg.nii.gz \
   -o ${nm}_diff -t s
 ```
 
@@ -72,7 +72,7 @@ into a single concatenated transformation stored as a displacement field.
 # collapse the transformations to a displacement field
 antsApplyTransforms -d 3 -o [${nm}_diffCollapsedWarp.nii.gz,1] \
   -t ${nm}_diff1Warp.nii.gz -t ${nm}_diff0GenericAffine.mat \
-  -r data/template.nii.gz
+  -r data2/template2mil.nii.gz
 ```
 
 Replicate the 3D template to 4D and apply all the transformations to the
@@ -81,11 +81,13 @@ original BOLD data.
 ImageMath 3 ${nm}_diff4DCollapsedWarp.nii.gz ReplicateDisplacement \
   ${nm}_diffCollapsedWarp.nii.gz $hislice $tr 0
 ImageMath 3 data/template_replicated.nii.gz ReplicateImage \
-  data/template.nii.gz $hislice $tr 0
+  data2/template2mil.nii.gz $hislice $tr 0
 # apply to original bold
 antsApplyTransforms -d 4 -o ${nm}_bold2template.nii.gz \
-  -t ${nm}_diff4DCollapsedWarp.nii.gz -t ${nm}_0Warp.nii.gz  \
-  -r data/template_replicated.nii.gz -i ${nm}Warped.nii.gz
+  -t ${nm}_diff4DCollapsedWarp.nii.gz -t ${nm}_1Warp.nii.gz  \
+  -t ${nm}_0Warp.nii.gz -r data/template_replicated.nii.gz \
+  -i ${fmri}
+
 ```
 
 Next you can run the CompCor command to estimate physiological nuisance variables.
